@@ -11,7 +11,7 @@
 	<packaging>pom</packaging>
 
 	<name>Dataset in File System - Parent</name>
-	<description>R2RML API based on Jena's polymorphism system</description>
+	<description>Implementation of Jena's DatasetGraph with backing by a File System</description>
 	<url>https://github.com/SmartDataAnalytics/r2rml-jena</url>
 
 	<modules>
@@ -36,9 +36,9 @@
 	<!-- scm section needs to be duplicated on child module for github-release-plugin; 
 		see https://github.com/jutzig/github-release-plugin/issues/14 -->
 	<scm>
-		<url>https://github.com/SmartDataAnalytics/RdfProcessingToolkit</url>
-		<connection>scm:git:git@github.com:SmartDataAnalytics/RdfProcessingToolkit.git</connection>
-		<developerConnection>scm:git:git@github.com:SmartDataAnalytics/RdfProcessingToolkit.git</developerConnection>
+		<url>https://github.com/AKSW/FsRdfStore</url>
+		<connection>scm:git:git@github.com:AKSW/FsRdfStore.git</connection>
+		<developerConnection>scm:git:git@github.com:AKSW/FsRdfStore.git</developerConnection>
 		<tag>HEAD</tag>
 	</scm>
 
