@@ -14,6 +14,10 @@
 	<packaging>jar</packaging>
 
 	<dependencies>
+		<dependency>
+			<groupId>org.aksw.jena-sparql-api</groupId>
+			<artifactId>jena-sparql-api-mapper-annotations</artifactId>
+		</dependency>
 	</dependencies>
 </project>
 

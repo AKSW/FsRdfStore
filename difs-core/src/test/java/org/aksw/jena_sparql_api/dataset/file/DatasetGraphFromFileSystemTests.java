@@ -6,9 +6,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.stream.Collectors;
 
+import org.apache.jena.dboe.base.file.Location;
 import org.apache.jena.ext.com.google.common.collect.Streams;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.NodeFactory;
+import org.apache.jena.query.Dataset;
 import org.apache.jena.query.DatasetFactory;
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.ModelFactory;
@@ -17,13 +19,36 @@ import org.apache.jena.riot.RDFDataMgr;
 import org.apache.jena.riot.RDFFormat;
 import org.apache.jena.sparql.core.DatasetGraph;
 import org.apache.jena.system.Txn;
+import org.apache.jena.tdb2.TDB2Factory;
 import org.apache.jena.vocabulary.DCAT;
 import org.apache.jena.vocabulary.DCTerms;
 import org.apache.jena.vocabulary.OWL;
 import org.apache.jena.vocabulary.RDF;
 import org.apache.jena.vocabulary.RDFS;
+import org.junit.Test;
 
 public class DatasetGraphFromFileSystemTests {
+	
+	@Test
+	public void test() {
+		Dataset ds1 = TDB2Factory.connectDataset(Location.create(Paths.get("/tmp/tdb2test")));
+		Dataset ds2 = TDB2Factory.connectDataset(Location.create(Paths.get("/tmp/tdb2test")));
+		
+		Txn.executeWrite(ds1, () -> ds1.asDatasetGraph().add(RDF.Nodes.type, RDF.Nodes.type, RDF.Nodes.type, RDF.Nodes.Property));
+		
+		System.out.println("yay");
+		
+		ds1.close();
+		ds2.close();
+		
+		
+//		ProcessFileLock plock = ProcessFileLock.create("/tmp/test");
+//		plock.get
+//		Scanner sc= new Scanner(System.in); //System.in is a standard input stream.
+//		System.out.print("Enter a string: ");
+//		String str= sc.nextLine(); //reads string.
+	}
+	
     public static void main(String[] args) throws IOException {
         Path path = Paths.get("/tmp/graphtest/store");
         Files.createDirectories(path);

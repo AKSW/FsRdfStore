@@ -16,6 +16,7 @@
 
 	<modules>
 		<module>difs-core</module>
+		<module>difs-git</module>
 		<module>difs-system</module>
 		<module>difs-cli</module>
 	</modules>
@@ -75,13 +76,18 @@
 
 	<dependencyManagement>
 		<dependencies>
+			<dependency>
+				<groupId>org.apache.jena</groupId>
+				<artifactId>jena-tdb2</artifactId>
+				<version>${jena.version}</version>
+			</dependency>
 
 			<dependency>
 				<groupId>org.aksw.commons</groupId>
 				<artifactId>aksw-commons-collectors</artifactId>
 				<version>${aksw.commons.version}</version>
 			</dependency>
-			
+
 			<dependency>
 				<groupId>org.aksw.jena-sparql-api</groupId>
 				<artifactId>jena-sparql-api-collections</artifactId>
@@ -130,6 +136,12 @@
 				<artifactId>jena-sparql-api-resources</artifactId>
 				<version>${jena-sparql-api.version}</version>
 				<scope>test</scope>
+			</dependency>
+
+			<dependency>
+				<groupId>org.aksw.jena-sparql-api</groupId>
+				<artifactId>jena-sparql-api-mapper-annotations</artifactId>
+				<version>${jena-sparql-api.version}</version>
 			</dependency>
 
 

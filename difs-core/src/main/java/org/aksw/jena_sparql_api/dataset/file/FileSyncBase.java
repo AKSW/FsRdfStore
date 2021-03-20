@@ -57,7 +57,11 @@ public abstract class FileSyncBase
                 Files.createDirectories(parentPath);
             }
 
-            Reference<FileChannel> r = FileLockUtils.open(path, false, StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE);
+            Reference<FileChannel> r = FileLockUtils.open(path, false,
+            		StandardOpenOption.CREATE,
+            		StandardOpenOption.READ,
+            		StandardOpenOption.WRITE,
+            		StandardOpenOption.DSYNC);
             return r;
         } catch (IOException | InterruptedException e) {
             throw new RuntimeException(e);

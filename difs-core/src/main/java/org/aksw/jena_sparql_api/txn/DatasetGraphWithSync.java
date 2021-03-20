@@ -1,4 +1,4 @@
-package org.aksw.jena_sparql_api.dataset.file;
+package org.aksw.jena_sparql_api.txn;
 
 import static org.apache.jena.query.ReadWrite.WRITE;
 import static org.apache.jena.system.Txn.calculateRead;
@@ -22,6 +22,10 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import org.aksw.jena_sparql_api.dataset.file.DatasetGraphIndexPlugin;
+import org.aksw.jena_sparql_api.dataset.file.FileSyncBase;
+import org.aksw.jena_sparql_api.dataset.file.FileSyncGraph;
+import org.aksw.jena_sparql_api.dataset.file.LockPolicy;
 import org.aksw.jena_sparql_api.utils.model.DatasetGraphDiff;
 import org.apache.jena.atlas.lib.InternalErrorException;
 import org.apache.jena.graph.Graph;
