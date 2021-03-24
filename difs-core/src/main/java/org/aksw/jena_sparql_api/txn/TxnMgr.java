@@ -22,23 +22,28 @@ public class TxnMgr {
 		this.lockMgr = lockMgr;
 		this.txnBasePath = txnBasePath;
 		this.resRepo = resRepo;
+		this.resShadow = resShadow;
 	}
 	
 	public ResourceRepository<String> getResRepo() {
 		return resRepo;
 	}
 
-	public TxnImpl newTxn() {
+	public TxnImpl newTxn(boolean isWrite) {
 		String txnId = "txn-" + new Random().nextLong();
 
 		Path txnFolder = txnBasePath.resolve(txnId);
 
 		try {
 			Files.createDirectories(txnFolder);
+
+			if (isWrite) {
+				Files.createFile(txnFolder.resolve("write"));
+			}
 		} catch (IOException e) {
 			throw new RuntimeException("Failed to lock txn folder");
 		}
-
+		
 		return new TxnImpl(this, txnId, txnFolder);
 	}
 }

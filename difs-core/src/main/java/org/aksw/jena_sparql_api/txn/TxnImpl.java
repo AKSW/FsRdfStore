@@ -45,6 +45,11 @@ public class TxnImpl {
 		return new ResourceApi(resourceName);
 	}
 
+	public boolean isWrite() {
+		boolean result = Files.exists(txnFolder.resolve("write"));
+		return result;
+	}
+	
 	/**
 	 * Declare that the resource was accessed by the transaction
 	 * Upon recovery the resource's state must be checked for whether any actions
@@ -118,6 +123,7 @@ public class TxnImpl {
 		for (retryAttempt = 0; retryAttempt < retryCount; ++retryAttempt) {
 			try {
 				result = runWithLock(lockSupplier, action);
+				break;
 			} catch (Exception e) {
 				if (retryAttempt + 1 == retryCount) {
 					throw new RuntimeException(e);
@@ -266,13 +272,14 @@ public class TxnImpl {
 		public Stream<Path> getReadLocks() throws IOException {
 	        PathMatcher pathMatcher = resShadowBasePath.getFileSystem().getPathMatcher("glob:*.read.lock");
 	        		
-		     return Files.list(resShadowBasePath)
-		        .filter(pathMatcher::matches);
+		     return Files.exists(resShadowAbsPath)
+		    		? Files.list(resShadowAbsPath).filter(pathMatcher::matches)
+		    		: Stream.empty();
 		}
 		
 		public void lock(boolean write) {
 			repeatWithLock(10, 100, this::getMgmtLock, () -> {
-				Path writeLockPath = resShadowPath.resolve("write.lock");
+				Path writeLockPath = resShadowAbsPath.resolve("write.lock");
 				if (Files.exists(writeLockPath)) {
 					throw new RuntimeException("Write lock already exitsts at " + writeLockPath);
 				}				
@@ -294,7 +301,8 @@ public class TxnImpl {
 						throw new RuntimeException("Read lock already exitsts at " + writeLockPath);
 				    } else {
 				    	// Create a write lock file that links to the txn folder
-						Files.createSymbolicLink(writeLockPath, txnFolder);
+				    	Files.createDirectories(writeLockPath.getParent());
+						Files.createSymbolicLink(writeLockPath, writeLockPath.getParent().relativize(txnFolder));
 				    	// Files.createFile(resourceShadowPath.resolve("write.lock"), null);
 				    }
 				}

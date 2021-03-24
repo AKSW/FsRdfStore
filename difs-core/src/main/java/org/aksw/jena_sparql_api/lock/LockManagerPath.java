@@ -34,13 +34,13 @@ public class LockManagerPath
 	}
 	
 	public static boolean tryCreateLockFile(Path path, long time, TimeUnit unit) {
-		boolean result;
+		boolean result = false;
 				
 		// TODO Check if the path is already locked by this thread on the manager
 		Path parentPath = path.getParent();
 		
 		StopWatch sw = StopWatch.createStarted();
-		for (;;) {
+		while (!result) {
 			try {
 				Files.createDirectories(parentPath);
 			} catch (IOException e2) {
@@ -50,9 +50,11 @@ public class LockManagerPath
 			try {
 				Files.createFile(path);
 				result = true;
+				break;
 			} catch (IOException e) {
 				ExceptionUtilsAksw.rethrowUnless(e, ExceptionUtilsAksw.isRootCauseInstanceOf(FileAlreadyExistsException.class));
 
+				// TODO Check if the lock is stale
 				long elapsed = sw.getTime(unit);
 				if (elapsed >= time) {
 					result = false;

@@ -19,6 +19,7 @@ public class ProcessFileLock
 	// public ProcessFileLock(LockManager<Path> lockManager, Path relPath) {
 	public ProcessFileLock(Path path) {
 		super();
+		this.path = path;
 		this.thread = null;
 	}
 

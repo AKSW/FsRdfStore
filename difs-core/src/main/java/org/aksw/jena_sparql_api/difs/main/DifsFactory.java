@@ -29,7 +29,7 @@ public class DifsFactory {
 		// creates default conf files
 		
 		Files.createDirectories(repoRootPath);
-		Path txnStore = Files.createDirectory(repoRootPath.resolve("txn"));
+		Path txnStore = Files.createDirectories(repoRootPath.resolve("txns"));
 		
 		LockManager<Path> processLockMgr = new LockManagerPath(repoRootPath);
 		LockManager<Path> threadLockMgr = new ThreadLockManager<>();

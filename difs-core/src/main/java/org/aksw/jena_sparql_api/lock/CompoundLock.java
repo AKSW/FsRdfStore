@@ -2,7 +2,6 @@ package org.aksw.jena_sparql_api.lock;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 
 /**
@@ -14,7 +13,7 @@ import java.util.concurrent.locks.Lock;
  *
  */
 public class CompoundLock
-	implements Lock
+	extends LockBase
 {
 	// The list of locks must not change after init
 	protected List<? extends Lock> locks;
@@ -30,19 +29,6 @@ public class CompoundLock
 		this.locks = locks;
 		this.heldLocks = 0;
 	}
-
-	@Override
-	public void lock() {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public boolean tryLock() {
-		// TODO Auto-generated method stub
-		return false;
-	}
-
 	
 	// FIXME The locksHeld stuff is not properly implemented yet
 	@Override
@@ -64,8 +50,6 @@ public class CompoundLock
 					unlock();
 					break;
 				}
-				
-				++i;
 			}
 		} catch (Exception e) {
 			unlock();
@@ -80,22 +64,12 @@ public class CompoundLock
 	@Override
 	public void unlock() {
 		synchronized (this) {
-			for (int i = 0; i < heldLocks; ++i) {
+			for (int i = heldLocks - 1; i >= 0; --i) {
 				Lock lock = locks.get(i);
 				lock.unlock();
 			}
 			
 			heldLocks = 0;
 		}
-	}
-
-	@Override
-	public Condition newCondition() {
-		throw new UnsupportedOperationException();
-	}
-
-	@Override
-	public void lockInterruptibly() throws InterruptedException {
-		throw new UnsupportedOperationException();
 	}
 }

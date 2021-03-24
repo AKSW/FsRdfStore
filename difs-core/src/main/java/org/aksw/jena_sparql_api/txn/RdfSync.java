@@ -11,8 +11,13 @@ import org.apache.jena.riot.RDFFormat;
 import org.apache.jena.sparql.core.DatasetGraph;
 
 public class RdfSync {
+	/**
+	 * 
+	 * @param path The folder for the resource (not the data file itself)
+	 * @return
+	 */
 	public static Synced<FileSync, DatasetGraph> create(Path path) {
-		return create(FileSync.create(path));
+		return create(FileSync.create(path.resolve("data.trig")));
 	}
 
 	public static Synced<FileSync, DatasetGraph> create(FileSync fileSync) {

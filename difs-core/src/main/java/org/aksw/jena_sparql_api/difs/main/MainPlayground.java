@@ -9,7 +9,7 @@ import org.apache.jena.sparql.core.DatasetGraph;
 import org.apache.jena.system.Txn;
 import org.apache.jena.vocabulary.RDF;
 
-public class MainDifs {
+public class MainPlayground {
 	public static void main(String[] args) throws IOException {
 		DatasetGraph dg = DifsFactory.newInstance().setPath(Paths.get("/tmp/testdb")).connect();
 		Dataset d = DatasetFactory.wrap(dg);
@@ -17,5 +17,6 @@ public class MainDifs {
 		Txn.executeWrite(d, () -> {
 			d.asDatasetGraph().add(RDF.Nodes.type, RDF.Nodes.type, RDF.Nodes.type, RDF.Nodes.Property);
 		});
+	
 	}
 }

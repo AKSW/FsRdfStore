@@ -30,9 +30,9 @@ import org.apache.jena.sparql.core.GraphView;
 import org.apache.jena.sparql.core.Quad;
 import org.apache.jena.system.Txn;
 
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.Streams;
 
 public class DatasetGraphFromTxnMgr
@@ -55,7 +55,7 @@ public class DatasetGraphFromTxnMgr
 //    }
 
 	
-	protected Cache<Path, Synced<?, DatasetGraph>> syncCache = CacheBuilder
+	protected LoadingCache<Path, Synced<?, DatasetGraph>> syncCache = CacheBuilder
 			.newBuilder()
 			.maximumSize(1000)
 			.build(new CacheLoader<Path, Synced<?, DatasetGraph>>() {
@@ -88,6 +88,7 @@ public class DatasetGraphFromTxnMgr
 
 	@Override
 	public void begin(TxnType type) {
+		begin(TxnType.convert(type));
 	}
 
 	@Override
@@ -97,7 +98,9 @@ public class DatasetGraphFromTxnMgr
 			throw new RuntimeException("Already in a transaction");
 		}
 
-		txn = txnMgr.newTxn();
+		boolean isWrite = ReadWrite.WRITE.equals(readWrite);
+		
+		txn = txnMgr.newTxn(isWrite);
 		txns.set(txn);
 	}
 
@@ -155,8 +158,10 @@ public class DatasetGraphFromTxnMgr
 
 	@Override
 	public TxnType transactionType() {
-		// TODO Auto-generated method stub
-		return null;
+		boolean isWrite = local().isWrite();
+		ReadWrite rw = isWrite ? ReadWrite.WRITE : ReadWrite.READ;
+		TxnType result = TxnType.convert(rw);
+		return result;
 	}
 
 	@Override
@@ -188,7 +193,7 @@ public class DatasetGraphFromTxnMgr
 	        	.flatMap(path -> {
 	        		Synced<?, DatasetGraph> entry;
 					try {
-						entry = syncCache.get(path, null);
+						entry = syncCache.get(path);
 					} catch (ExecutionException e) {
 						throw new RuntimeException(e);
 					}
@@ -235,7 +240,7 @@ public class DatasetGraphFromTxnMgr
 			
 			Synced<?, DatasetGraph> synced;
 			try {
-				synced = syncCache.get(relPath, null);
+				synced = syncCache.get(relPath);
 			} catch (ExecutionException e) {
 				throw new RuntimeException(e);
 			}
