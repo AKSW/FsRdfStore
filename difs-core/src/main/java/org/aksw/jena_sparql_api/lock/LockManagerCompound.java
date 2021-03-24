@@ -9,6 +9,11 @@ public class LockManagerCompound<T>
 {
 	protected List<? extends LockManager<T>> delegates;
 	
+	public LockManagerCompound(List<? extends LockManager<T>> delegates) {
+		super();
+		this.delegates = delegates;
+	}
+
 	@Override
 	public Lock getLock(T resource, boolean write) {
 		List<Lock> locks = delegates.stream()

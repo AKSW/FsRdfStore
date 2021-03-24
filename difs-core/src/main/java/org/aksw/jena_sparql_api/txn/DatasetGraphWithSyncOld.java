@@ -58,11 +58,11 @@ import org.slf4j.LoggerFactory;
  * Hence, another process cannot write the file while a read transaction is running.
  *
  */
-public class DatasetGraphWithSync
+public class DatasetGraphWithSyncOld
      extends DatasetGraphWrapper
 //    extends DatasetGraphMonitor
 {
-    private static final Logger logger = LoggerFactory.getLogger(DatasetGraphWithSync.class);
+    private static final Logger logger = LoggerFactory.getLogger(DatasetGraphWithSyncOld.class);
 
     protected FileSyncBase syncer;
 
@@ -147,12 +147,12 @@ public class DatasetGraphWithSync
         return result;
     }
 
-    public DatasetGraphWithSync(Path path, LockPolicy lockPolicy) throws Exception {
+    public DatasetGraphWithSyncOld(Path path, LockPolicy lockPolicy) throws Exception {
 //        this(DatasetGraphFactory.createTxnMem(), path, lockPolicy);
         this(new DatasetGraphDiff(), path, lockPolicy);
     }
 
-    public DatasetGraphWithSync(DatasetGraph dsg, Path path, LockPolicy lockPolicy) throws Exception {
+    public DatasetGraphWithSyncOld(DatasetGraph dsg, Path path, LockPolicy lockPolicy) throws Exception {
         super(dsg);
         RDFFormat rdfFormat = RDFFormat.TRIG_PRETTY;
         syncer = new FileSyncGraph(dsg, path, rdfFormat, lockPolicy, this::getVersion);
@@ -412,7 +412,7 @@ public class DatasetGraphWithSync
     public static void main(String[] args) throws Exception {
         Path file = Paths.get("/tmp/txn-test.trig");
 
-        DatasetGraph dg = new DatasetGraphWithSync(file, LockPolicy.LIFETIME);
+        DatasetGraph dg = new DatasetGraphWithSyncOld(file, LockPolicy.LIFETIME);
         Dataset ds = DatasetFactory.wrap(dg);
 
         dg.clear();

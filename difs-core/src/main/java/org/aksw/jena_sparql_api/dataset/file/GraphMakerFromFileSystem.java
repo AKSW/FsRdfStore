@@ -3,6 +3,7 @@ package org.aksw.jena_sparql_api.dataset.file;
 import java.nio.file.Path;
 
 import org.aksw.commons.io.util.UriToPathUtils;
+import org.aksw.jena_sparql_api.txn.DatasetGraphWithSyncOld;
 import org.apache.jena.graph.Graph;
 import org.apache.jena.graph.Node;
 import org.apache.jena.sparql.core.DatasetGraph;
@@ -25,7 +26,7 @@ public class GraphMakerFromFileSystem
         Path fullPath = path.resolve(relPath).resolve("data.trig");
         DatasetGraph dg;
         try {
-            dg = new DatasetGraphWithSync(fullPath, LockPolicy.TRANSACTION);
+            dg = new DatasetGraphWithSyncOld(fullPath, LockPolicy.TRANSACTION);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

@@ -14,6 +14,7 @@ import java.util.stream.Collectors;
 import org.aksw.commons.io.util.SymLinkUtils;
 import org.aksw.commons.io.util.UriToPathUtils;
 import org.aksw.commons.util.strings.StringUtils;
+import org.aksw.jena_sparql_api.txn.DatasetGraphFromFileSystem;
 import org.apache.jena.atlas.iterator.IteratorConcat;
 import org.apache.jena.ext.com.google.common.io.MoreFiles;
 import org.apache.jena.graph.Node;

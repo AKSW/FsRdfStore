@@ -1,6 +1,7 @@
 package org.aksw.jena_sparql_api.txn;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.channels.FileChannel;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -8,10 +9,21 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.FileTime;
+import java.time.Instant;
+import java.util.function.Consumer;
 
 import org.aksw.commons.io.util.FileChannelUtils;
 
-public class FileSync {
+
+/**
+ * Protocol implementation to create/read/update/(delete) data with syncing to a file
+ * in a transaction-safe way.
+ * 
+ */
+public class FileSync
+	implements TxnComponent
+{
 	protected Path targetFile;
 	protected Path newContentFile;
 	protected Path newContentTmpFile;
@@ -27,7 +39,7 @@ public class FileSync {
 	}
 
 
-	public FileSync create(Path path) {
+	public static FileSync create(Path path) {
 		String fileName = path.getFileName().toString();
 		
 		return new FileSync(
@@ -41,11 +53,50 @@ public class FileSync {
 //		Files.copy(targetFile, oldContentTmpFile, StandardCopyOption.REPLACE_EXISTING);
 //	}
 	
+	public Path getCurrentPath() {
+		Path result;
+		if (Files.exists(newContentFile)) {
+			result = newContentFile;
+		} else {
+			result = targetFile;
+		}
+		return result;
+	}
+
+	public InputStream openCurrentContent() throws IOException {
+		Path currentPath = getCurrentPath();
+		InputStream result = Files.newInputStream(currentPath);
+		return result;
+	}
+	
 	public OutputStream newOutputStreamToNewTmpContent() throws IOException {
 		OutputStream result = Files.newOutputStream(newContentTmpFile, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
 		return result;
 	}
-		
+	
+	public Instant getLastModifiedTime() throws IOException {
+		Path currentPath = getCurrentPath();
+		FileTime ft = Files.getLastModifiedTime(currentPath);
+		Instant result = ft.toInstant();
+		return result;
+	}
+
+
+	/** 
+	 * Set the new content of a resource.
+	 * The new content is not committed.
+	 * 
+	 * @param outputStreamSupplier
+	 * @throws IOException
+	 */
+	public void putContent(Consumer<OutputStream> outputStreamSupplier) throws IOException {
+		// Delete a possibly prior written newContentFile
+		Files.delete(newContentFile);
+		try (OutputStream out = newOutputStreamToNewTmpContent()) {
+			outputStreamSupplier.accept(out);
+			moveAtomic(newContentTmpFile, newContentFile);
+		}
+	}
 
 	public static void moveAtomic(Path srcFile, Path tgtPath) throws IOException {
 		try {
@@ -63,13 +114,37 @@ public class FileSync {
 		}		
 	}
 	
+
+	public void recoverPreCommit() throws IOException {
+		// If there is no newContent but a newContentTmp then we reached an inconsistent state:
+		// We cannot commit if the newContent was not fully written
+		boolean newContentFileExists = Files.exists(newContentFile);
+		boolean neContentTmpFileExists = Files.exists(newContentTmpFile);
+		
+		if (!Files.exists(newContentFile) && Files.exists(newContentTmpFile)) {
+			throw new IllegalStateException();
+		}
+		
+		// If any new content file exists without backup something went wrong as well
+		
+		
+		// If there is no backup of the existing data then create it
+		if (!Files.exists(oldContentFile)) {
+			moveAtomic(targetFile, oldContentFile);
+		}		
+	}
+
+
 	/**
 	 * Replace the new content with the current temporary content
 	 * @throws IOException 
 	 */
-	public void precommit() throws IOException {
-		// Backup the existing data
-		moveAtomic(targetFile, oldContentFile);
+	@Override
+	public void preCommit() throws IOException {
+		// If there is no backup of the existing data then create it
+		if (!Files.exists(oldContentFile)) {
+			moveAtomic(targetFile, oldContentFile);
+		}
 
 		// Move the tmp content to new content
 		moveAtomic(newContentTmpFile, newContentFile);
@@ -78,12 +153,14 @@ public class FileSync {
 		moveAtomic(newContentFile, targetFile);
 	}
 	
-	public void commit() throws IOException {
+	@Override
+	public void finalizeCommit() throws IOException {
 		Files.delete(oldContentTmpFile);	
 		Files.delete(oldContentFile);
 	}
 	
 	
+	@Override
 	public void rollback() throws IOException {
 		Files.delete(newContentFile);
 		Files.delete(newContentTmpFile);

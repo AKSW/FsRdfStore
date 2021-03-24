@@ -15,15 +15,27 @@ import org.apache.commons.lang3.time.StopWatch;
 public class LockManagerPath
 	implements LockManager<Path>
 {
+	protected Path basePath;
+
 	protected Map<Path, ProcessFileLock> pathToLock = new ConcurrentHashMap<>();
-	
+
+	public LockManagerPath(Path basePath) {
+		super();
+		this.basePath = basePath;
+	}
+
 	public Lock getLock(Path path, boolean write) {
-		return pathToLock.computeIfAbsent(path, p -> new ProcessFileLock(p));
+		Path absPath = basePath.resolve(path);
+		Path relPath = basePath.relativize(absPath);
+		
+		// TODO Verify that the path is a descendant of basePath
+
+		return pathToLock.computeIfAbsent(relPath, p -> new ProcessFileLock(absPath));
 	}
 	
 	public static boolean tryCreateLockFile(Path path, long time, TimeUnit unit) {
 		boolean result;
-		
+				
 		// TODO Check if the path is already locked by this thread on the manager
 		Path parentPath = path.getParent();
 		

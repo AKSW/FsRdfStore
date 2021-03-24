@@ -1,30 +1,24 @@
 package org.aksw.jena_sparql_api.lock;
 
 import java.io.IOException;
-import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 
-import org.aksw.commons.util.exception.ExceptionUtilsAksw;
-import org.apache.commons.lang3.time.StopWatch;
-
 public class ProcessFileLock
 	implements Lock
 {
-	// protected LockManager lockManager;
 	protected Path path;
 	
 	// The thread that owns the lock (if any)
 	protected transient Thread thread;
 
 	
+	// public ProcessFileLock(LockManager<Path> lockManager, Path relPath) {
 	public ProcessFileLock(Path path) {
 		super();
-		this.path = path;
 		this.thread = null;
 	}
 
@@ -42,15 +36,30 @@ public class ProcessFileLock
 	 */
 	@Override
 	public boolean tryLock(long time, TimeUnit unit) {
-		lockManager.tryCreateLockFile(path, time, unit);
+		Thread currentThread = Thread.currentThread();
+		
+		boolean result;
+		if (thread == null) {		
+			result = LockManagerPath.tryCreateLockFile(path, time, unit);
+			thread = Thread.currentThread();
+		} else if (thread == currentThread) {
+			result = true;
+		} else {
+			throw new RuntimeException("Attempt to re-lock a lock instance from a different thread");
+		}
+		
+		return result;
 	}
 
 	@Override
 	public void unlock() {
-		try {
-			Files.delete(path);
-		} catch (IOException e) {
-			throw new RuntimeException(e);
+		if (thread != null) {
+			try {
+				Files.delete(path);
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
+			thread = null;
 		}
 	}
 

@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
-import java.nio.file.Paths;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Collections;
 import java.util.HashSet;
@@ -35,16 +34,10 @@ import org.apache.jena.ext.com.google.common.collect.Streams;
 import org.apache.jena.graph.Graph;
 import org.apache.jena.graph.GraphUtil;
 import org.apache.jena.graph.Node;
-import org.apache.jena.graph.NodeFactory;
 import org.apache.jena.query.Dataset;
 import org.apache.jena.query.DatasetFactory;
 import org.apache.jena.query.ReadWrite;
 import org.apache.jena.query.TxnType;
-import org.apache.jena.rdf.model.Model;
-import org.apache.jena.rdf.model.ModelFactory;
-import org.apache.jena.rdf.model.Resource;
-import org.apache.jena.riot.RDFDataMgr;
-import org.apache.jena.riot.RDFFormat;
 import org.apache.jena.sparql.SystemARQ;
 import org.apache.jena.sparql.core.DatasetGraph;
 import org.apache.jena.sparql.core.DatasetGraphCollection;
@@ -53,12 +46,6 @@ import org.apache.jena.sparql.core.Quad;
 import org.apache.jena.sparql.core.Transactional;
 import org.apache.jena.sparql.graph.GraphFactory;
 import org.apache.jena.sparql.graph.GraphReadOnly;
-import org.apache.jena.system.Txn;
-import org.apache.jena.vocabulary.DCAT;
-import org.apache.jena.vocabulary.DCTerms;
-import org.apache.jena.vocabulary.OWL;
-import org.apache.jena.vocabulary.RDF;
-import org.apache.jena.vocabulary.RDFS;
 
 
 
@@ -66,9 +53,12 @@ public class DatasetGraphFromFileSystem
     extends DatasetGraphCollection
 {
     protected Path basePath;
+    
+    /* Matcher for the data files from which to load the RDF data */
     protected PathMatcher pathMatcher;
     protected Predicate<? super Path> isPathException;
 
+    /* Cache of dataset instances created from the data files */
     protected TreeMap<Path, Dataset> individualCache = new TreeMap<Path, Dataset>();
 
     // Relative path to basePath
@@ -76,9 +66,10 @@ public class DatasetGraphFromFileSystem
 
     protected Graph dftGraph = new GraphReadOnly(GraphFactory.createDefaultGraph());
 
-    
-	protected LockManager<Path> processLockManager;
-	protected LockManager<Path> threadLockManager;
+
+    protected LockManager<Path> lockMgr;
+//	protected LockManager<Path> processLockManager;
+//	protected LockManager<Path> threadLockManager;
     
 
     protected Set<Consumer<? super DatasetGraphDiff>> preCommitHooks = Collections.synchronizedSet(new HashSet<>());
@@ -372,12 +363,12 @@ public class DatasetGraphFromFileSystem
         if (ds == null) {
             Path fullPath = basePath.resolve(fileRelPath);//.resolve("data.trig");
 
-            DatasetGraphWithSync dsg;
+            DatasetGraphWithSyncOld dsg;
             try {
                 // FIXME Implement file deletion on rollback
                 // If the transaction in which this graph is created is rolled back
                 // then the file that backs the graph must also be deleted again
-                dsg = new DatasetGraphWithSync(fullPath, LockPolicy.TRANSACTION);
+                dsg = new DatasetGraphWithSyncOld(fullPath, LockPolicy.TRANSACTION);
                 dsg.setIndexPlugins(indexPlugins);
                 dsg.setPreCommitHooks(preCommitHooks);
 

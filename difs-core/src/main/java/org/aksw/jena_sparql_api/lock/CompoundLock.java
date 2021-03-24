@@ -5,15 +5,28 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 
+/**
+ * A lock that is made up of multiple locks.
+ * For {@link #tryLock(long, TimeUnit)} to succeed this method must succeed for all child locks.
+ * On failure any acquired locks are unlocked again.
+ * 
+ * @author raven
+ *
+ */
 public class CompoundLock
 	implements Lock
 {
+	// The list of locks must not change after init
 	protected List<? extends Lock> locks;
 
 	protected int heldLocks = 0;	
 	
 	public CompoundLock(List<? extends Lock> locks) {
 		super();
+		if (locks.isEmpty()) {
+			throw new IllegalArgumentException("The set of locks must not be empty");
+		}
+		
 		this.locks = locks;
 		this.heldLocks = 0;
 	}
@@ -34,7 +47,8 @@ public class CompoundLock
 	// FIXME The locksHeld stuff is not properly implemented yet
 	@Override
 	public boolean tryLock(long time, TimeUnit unit) throws InterruptedException {
-		long start = System.nanoTime();
+		boolean result;
+		long startTime = System.nanoTime();
 		
 		long allowedTime = TimeUnit.NANOSECONDS.convert(time, unit);
 		try {
@@ -43,18 +57,24 @@ public class CompoundLock
 				Lock lock = locks.get(i);
 				
 				boolean success = lock.tryLock(time, unit);
+				++heldLocks;
 				
-				long elapsedTime = System.nanoTime() - allowedTime;
+				long elapsedTime = System.nanoTime() - startTime;
 				if (!success || (elapsedTime > allowedTime && !isLastLock)) {
-					for (int j = 0; i <= i; ++i) {
-						locks.get(j).unlock();
-					}
+					unlock();
+					break;
 				}
 				
 				++i;
 			}
-		}		
+		} catch (Exception e) {
+			unlock();
+			// throw new RuntimeException(e);
+		}
+
+		result = heldLocks == locks.size();
 		
+		return result;
 	}
 
 	@Override

@@ -8,7 +8,13 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 
-
+/**
+ * Map of some resource to a lock for that resource.
+ * 
+ * @author Claus Stadler
+ *
+ * @param <T>
+ */
 public class ThreadLockManager<T>
 	implements LockManager<T>
 {
