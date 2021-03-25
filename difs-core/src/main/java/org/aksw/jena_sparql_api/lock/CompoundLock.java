@@ -30,7 +30,7 @@ public class CompoundLock
 		this.heldLocks = 0;
 	}
 	
-	// FIXME The locksHeld stuff is not properly implemented yet
+	// TODO More synchronization is needed; otherwise the heldLocks stuff may brake under concurrent access
 	@Override
 	public boolean tryLock(long time, TimeUnit unit) throws InterruptedException {
 		boolean result;

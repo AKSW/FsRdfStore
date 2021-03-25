@@ -209,6 +209,7 @@ public class TxnImpl {
 		protected String resFilename;
 		
 		protected Path resFilePath;
+		protected Path resFileAbsPath;
 		protected Path resShadowPath;
 
 		// Declare an access attempt to the resource in the txn's journal
@@ -227,6 +228,8 @@ public class TxnImpl {
 			this.resourceName = resourceName;
 			
 			resFilePath = txnMgr.resRepo.getRelPath(resourceName);
+			resFileAbsPath = txnMgr.resRepo.getRootPath().resolve(resFilePath);
+			
 			resShadowPath = txnMgr.resShadow.getRelPath(resourceName);
 			
 			resFilename = StringUtils.urlEncode(resourceName);
@@ -244,7 +247,9 @@ public class TxnImpl {
 			
 			writeLockFile = resShadowAbsPath.resolve("write.lock");
 			
-			fileSync = FileSync.create(resFilePath);
+			
+			// TODO HACK - the data.trig should not probably come from elsewhere
+			fileSync = FileSync.create(resFileAbsPath.resolve("data.trig"));
 		}
 		
 		public void declareAccess() {
@@ -341,6 +346,8 @@ public class TxnImpl {
 				return null;
 			});
 			
+			// If the resource shadow folder is empty try to delete the folder
+			FileUtilsX.deleteEmptyFolders(resShadowAbsPath, resShadowBasePath);
 		}
 		
 		public FileSync getFileSync() {

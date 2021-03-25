@@ -48,7 +48,7 @@ public class FileSync
 		return new FileSync(
 				path,
 				path.resolveSibling(fileName + ".sync.old"),
-				path.resolve(fileName + ".sync.new"));
+				path.resolveSibling(fileName + ".sync.new"));
 	}
 		
 //	public void createBackup() throws IOException {
@@ -73,6 +73,7 @@ public class FileSync
 	}
 	
 	public OutputStream newOutputStreamToNewTmpContent() throws IOException {
+		Files.createDirectories(newContentTmpFile.getParent());
 		OutputStream result = Files.newOutputStream(newContentTmpFile, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
 		return result;
 	}
@@ -99,7 +100,7 @@ public class FileSync
 	 */
 	public void putContent(Consumer<OutputStream> outputStreamSupplier) throws IOException {
 		// Delete a possibly prior written newContentFile
-		Files.delete(newContentFile);
+		Files.deleteIfExists(newContentFile);
 		try (OutputStream out = newOutputStreamToNewTmpContent()) {
 			outputStreamSupplier.accept(out);
 			moveAtomic(newContentTmpFile, newContentFile);

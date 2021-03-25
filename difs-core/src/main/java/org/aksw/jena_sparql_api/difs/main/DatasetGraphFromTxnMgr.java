@@ -124,11 +124,12 @@ public class DatasetGraphFromTxnMgr
 			while (it.hasNext()) {
 				String res = it.next();
 				System.out.println("Syncing: " + res);
+				Path relPath = txnMgr.getResRepo().getRelPath(res);
 
 				ResourceApi api = local().getResourceApi(res);
 				if (api.ownsWriteLock()) {
 					// If we own a write lock and the state is dirty then sync
-					Synced<?, DatasetGraph> synced = syncCache.getIfPresent(res);
+					Synced<?, DatasetGraph> synced = syncCache.getIfPresent(relPath);
 					if (synced != null) {
 						synced.save();
 					}
@@ -142,21 +143,17 @@ public class DatasetGraphFromTxnMgr
 			// add the statement that the commit action can now be run
 			local().addCommit();
 
-			// Run the commit actions
+			// Run the finalization actions
+			// As these actions remove undo information
+			// there is no turning back anymore
 			it = local().streamAccessedResources().iterator();
 			while (it.hasNext()) {
 				String res = it.next();
-				System.out.println("Unlocking: " + res);
-				local().getResourceApi(res).finalizeCommit();
-			}
-
-			
-			// Remove all locks
-			it = local().streamAccessedResources().iterator();
-			while (it.hasNext()) {
-				String res = it.next();
-				System.out.println("Unlocking: " + res);
-				local().getResourceApi(res).unlock();
+				System.out.println("Finalizing and unlocking: " + res);
+				ResourceApi api = local().getResourceApi(res);
+				
+				api.finalizeCommit();
+				api.unlock();
 			}
 
 		} catch (Exception e) {
