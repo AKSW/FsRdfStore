@@ -74,6 +74,11 @@ public class FileSync
 		return result;
 	}
 	
+	public boolean exists() {
+		Path currentPath = getCurrentPath();
+		return Files.exists(currentPath);
+	}
+	
 	public Instant getLastModifiedTime() throws IOException {
 		Path currentPath = getCurrentPath();
 		FileTime ft = Files.getLastModifiedTime(currentPath);

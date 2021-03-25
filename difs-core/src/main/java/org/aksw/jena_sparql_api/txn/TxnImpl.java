@@ -5,10 +5,12 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.locks.Lock;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.aksw.commons.util.strings.StringUtils;
@@ -98,10 +100,16 @@ public class TxnImpl {
 	
 	/** Stream the resources to which access has been declared */
 	public Stream<Path> streamAccessedEntries() throws IOException {
-        PathMatcher pathMatcher = txnFolder.getFileSystem().getPathMatcher("glob:.*");
-        		
-	     return Files.list(txnFolder)
-	        .filter(pathMatcher::matches);
+//        PathMatcher pathMatcher = txnFolder.getFileSystem().getPathMatcher("glob:**/.*");
+//        		
+//	    List<Path> tmp = Files.list(txnFolder).filter(p -> {
+//	    	boolean r = pathMatcher.matches(p);
+//	    	return r;
+//	    })
+//	    .collect(Collectors.toList());
+	    	
+	    return Files.list(txnFolder)
+	    		.filter(path -> path.getFileName().toString().startsWith("."));
 	}
 
 	public Stream<String> streamAccessedResources() throws IOException {
@@ -233,19 +241,24 @@ public class TxnImpl {
 			mgmtLockPath = resShadowPath.resolve("mgmt.lock");
 			
 			String readLockFileName = "txn-" + txnId + "read.lock";
-			readLockFile = resShadowPath.resolve(readLockFileName);
+			readLockFile = resShadowAbsPath.resolve(readLockFileName);
 
 			
-			writeLockFile = resShadowPath.resolve("write.lock");
+			writeLockFile = resShadowAbsPath.resolve("write.lock");
 			
 			fileSync = FileSync.create(resFilePath);
 		}
 		
-		public void declareAccess() throws IOException {
+		public void declareAccess() {
 			Path resShadowAbsPath = resShadowBasePath.resolve(resShadowPath);
 
 			/// Path journalResTgt = txnJournalFolder.relativize(journalEntryName); // TODO generate another id
-			Files.createSymbolicLink(journalEntryFile, resShadowAbsPath.relativize(txnFolder));			
+			
+			try {
+				Files.createSymbolicLink(journalEntryFile, txnFolder.relativize(resShadowAbsPath));
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}			
 		}
 		
 		public Lock getMgmtLock() {
@@ -279,15 +292,15 @@ public class TxnImpl {
 		
 		public void lock(boolean write) {
 			repeatWithLock(10, 100, this::getMgmtLock, () -> {
-				Path writeLockPath = resShadowAbsPath.resolve("write.lock");
-				if (Files.exists(writeLockPath)) {
-					throw new RuntimeException("Write lock already exitsts at " + writeLockPath);
+				// Path writeLockPath = resShadowAbsPath.resolve("write.lock");
+				if (Files.exists(writeLockFile)) {
+					throw new RuntimeException("Write lock already exitsts at " + writeLockFile);
 				}				
 				
 				if (!write) { // read lock requested
 				    // TODO add another read lock entry that points to the txn
-					String readLockFileName = "txn-" + txnId + ".read.lock";
-					Path readLockFile = resShadowPath.resolve(readLockFileName);
+					// String readLockFileName = "txn-" + txnId + ".read.lock";
+					// Path readLockFile = resShadowPath.resolve(readLockFileName);
 					
 					// Use the read lock to link back to the txn that own it
 					Files.createSymbolicLink(readLockFile, txnFolder);					
@@ -298,11 +311,11 @@ public class TxnImpl {
 					}
 					
 				    if (existsReadLock) {
-						throw new RuntimeException("Read lock already exitsts at " + writeLockPath);
+						throw new RuntimeException("Read lock already exitsts at " + writeLockFile);
 				    } else {
 				    	// Create a write lock file that links to the txn folder
-				    	Files.createDirectories(writeLockPath.getParent());
-						Files.createSymbolicLink(writeLockPath, writeLockPath.getParent().relativize(txnFolder));
+				    	Files.createDirectories(writeLockFile.getParent());
+						Files.createSymbolicLink(writeLockFile, writeLockFile.getParent().relativize(txnFolder));
 				    	// Files.createFile(resourceShadowPath.resolve("write.lock"), null);
 				    }
 				}
@@ -313,8 +326,8 @@ public class TxnImpl {
 		
 		public void unlock() {
 			repeatWithLock(10, 100, this::getMgmtLock, () -> {
-				Files.delete(writeLockFile);
-				Files.delete(readLockFile);
+				Files.deleteIfExists(writeLockFile);
+				Files.deleteIfExists(readLockFile);
 				return null;
 			});
 			

@@ -24,13 +24,15 @@ public class RdfSync {
 		return new Synced<FileSync, DatasetGraph>(
 				fileSync,
 				e -> {
-					try (InputStream in = e.openCurrentContent()) {
-						DatasetGraph dg = DatasetGraphFactoryEx.createInsertOrderPreservingDatasetGraph();
-						RDFDataMgr.read(dg, in, Lang.TRIG);
-						return dg;
-					} catch (Exception ex) {
-						throw new RuntimeException(ex);
+					DatasetGraph dg = DatasetGraphFactoryEx.createInsertOrderPreservingDatasetGraph();
+					if (e.exists()) {
+						try (InputStream in = e.openCurrentContent()) {
+							RDFDataMgr.read(dg, in, Lang.TRIG);
+						} catch (Exception ex) {
+							throw new RuntimeException(ex);
+						}
 					}
+					return dg;
 				},
 				(e, dg) -> {
 					try {
@@ -43,7 +45,7 @@ public class RdfSync {
 				},
 				e -> {
 					try {
-						Instant r = e.getLastModifiedTime();
+						Instant r = e.exists() ? e.getLastModifiedTime() : null;
 						return r;
 					} catch (Exception ex) {
 						throw new RuntimeException(ex);

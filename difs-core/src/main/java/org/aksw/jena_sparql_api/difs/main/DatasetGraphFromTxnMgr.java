@@ -114,7 +114,27 @@ public class DatasetGraphFromTxnMgr
 	@Override
 	public void commit() {
 		try {
+			Iterator<String> it = local().streamAccessedResources().iterator();
+			while (it.hasNext()) {
+				String res = it.next();
+				System.out.println("Syncing: " + res);
+				// local().getResourceApi(res).unlock();
+				// TODO sync
+			}
+
+			// Once all modified graphs are written out
+			// add the statement that the commit action can now be run
 			local().addCommit();
+
+			// Run the commit actions
+			
+			it = local().streamAccessedResources().iterator();
+			while (it.hasNext()) {
+				String res = it.next();
+				System.out.println("Unlocking: " + res);
+				local().getResourceApi(res).unlock();
+			}
+
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
@@ -236,6 +256,7 @@ public class DatasetGraphFromTxnMgr
 			// Get the resource and lock it for writing
 			// The lock is held until the end of the transaction
 			ResourceApi api = local().getResourceApi(iri);
+			api.declareAccess();
 			api.lock(true);
 			
 			Synced<?, DatasetGraph> synced;
