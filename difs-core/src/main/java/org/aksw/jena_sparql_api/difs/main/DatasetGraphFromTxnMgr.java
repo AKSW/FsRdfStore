@@ -146,6 +146,8 @@ public class DatasetGraphFromTxnMgr
 			// Run the finalization actions
 			// As these actions remove undo information
 			// there is no turning back anymore
+			local().addFinalize();
+			
 			it = local().streamAccessedResources().iterator();
 			while (it.hasNext()) {
 				String res = it.next();
@@ -154,8 +156,10 @@ public class DatasetGraphFromTxnMgr
 				
 				api.finalizeCommit();
 				api.unlock();
+				api.undeclareAccess();
 			}
 
+			local().cleanUpTxn();
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
@@ -177,13 +181,13 @@ public class DatasetGraphFromTxnMgr
 		// local().applyChanges();
 		
 		// Iterate all resources and remove any locks 
-		try {
-			local().streamAccessedResources().forEach(r -> {
-				local().getResourceApi(r).unlock();
-			});
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		}
+//		try {
+//			local().streamAccessedResources().forEach(r -> {
+//				local().getResourceApi(r).unlock();
+//			});
+//		} catch (IOException e) {
+//			throw new RuntimeException(e);
+//		}
 		
 //		ResourceApi api = local().getResourceApi(iri);
 //		api.lock(true);
@@ -287,6 +291,28 @@ public class DatasetGraphFromTxnMgr
 				throw new RuntimeException(e);
 			}
 			synced.get().add(g, s, p, o);
+		});
+	}
+	
+	@Override
+	public void delete(Node g, Node s, Node p, Node o) {		
+		Txn.executeWrite(this, () -> {
+			String iri = g.getURI();
+			Path relPath = txnMgr.getResRepo().getRelPath(iri);
+
+			// Get the resource and lock it for writing
+			// The lock is held until the end of the transaction
+			ResourceApi api = local().getResourceApi(iri);
+			api.declareAccess();
+			api.lock(true);
+			
+			Synced<?, DatasetGraph> synced;
+			try {
+				synced = syncCache.get(relPath);
+			} catch (ExecutionException e) {
+				throw new RuntimeException(e);
+			}
+			synced.get().delete(g, s, p, o);
 		});
 	}
 	

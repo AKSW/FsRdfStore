@@ -15,18 +15,19 @@ public class FileUtilsX {
 	}
 
 	public static void deleteEmptyFolders(Path path, Path baseFolder) {
-		if (!Files.isDirectory(path)) {
-			throw new IllegalArgumentException("Path must be a directory: " + path);
-		}
-
 		while (path.startsWith(baseFolder)) {
-			try {
-				Files.deleteIfExists(path);
-			} catch (IOException e) {
-				// Ignore
-				break;
-			}
-			
+			if (Files.exists(path)) {
+				if (!Files.isDirectory(path)) {
+					throw new IllegalArgumentException("Path must be a directory: " + path);
+				}
+	
+				try {
+					Files.deleteIfExists(path);
+				} catch (IOException e) {
+					// Ignore
+					break;
+				}
+			}				
 			path = path.getParent();
 		}
 	}

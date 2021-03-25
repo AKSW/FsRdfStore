@@ -19,12 +19,14 @@ public class TxnImpl {
 	protected Path txnFolder;
 	
 //	protected String preCommitFilename = ".precommit";
-	protected String commitFilename = ".commit";
-	protected String rollbackFilename = ".rollback";
+	protected String commitFilename = "commit";
+	protected String finalizeFilename = "finalize";
+	protected String rollbackFilename = "rollback";
 	
 //	protected transient Path preCommitFile;
 //	protected transient Path finalizeCommitFile;
 	protected transient Path commitFile;
+	protected transient Path finalizeFile;
 	protected transient Path rollbackFile;
 	
 	
@@ -37,6 +39,7 @@ public class TxnImpl {
 		
 		
 		this.commitFile = txnFolder.resolve(commitFilename);
+		this.finalizeFile = txnFolder.resolve(finalizeFilename);
 		this.rollbackFile = txnFolder.resolve(rollbackFilename);
 	}
 	
@@ -85,9 +88,33 @@ public class TxnImpl {
 //		// Path txnFile = txnFolder.resolve(resFilename);
 //	}
 	
+
+	public void cleanUpTxn() throws IOException {
+		try {
+			Files.deleteIfExists(commitFile);
+		} finally {
+			try {
+				Files.deleteIfExists(finalizeFile);
+			} finally {
+				try {
+					Files.deleteIfExists(rollbackFile);
+				} finally {
+					try {
+						Files.deleteIfExists(txnFolder.resolve("write"));
+					} finally {
+						FileUtilsX.deleteEmptyFolders(txnFolder, txnMgr.txnBasePath);
+					}
+				}
+			}
+		}
+	}
 	
 	public void addCommit() throws IOException {
 		Files.createFile(commitFile);		
+	}
+
+	public void addFinalize() throws IOException {
+		Files.createFile(finalizeFile);		
 	}
 
 		
@@ -239,7 +266,7 @@ public class TxnImpl {
 			resShadowBasePath = txnMgr.resShadow.getRootPath();
 			resShadowAbsPath = resShadowBasePath.resolve(resShadowPath);
 			
-			mgmtLockPath = resShadowPath.resolve("mgmt.lock");
+			mgmtLockPath = resShadowAbsPath.resolve("mgmt.lock");
 			
 			String readLockFileName = "txn-" + txnId + "read.lock";
 			readLockFile = resShadowAbsPath.resolve(readLockFileName);
@@ -253,17 +280,22 @@ public class TxnImpl {
 		}
 		
 		public void declareAccess() {
-			Path resShadowAbsPath = resShadowBasePath.resolve(resShadowPath);
-
-			/// Path journalResTgt = txnJournalFolder.relativize(journalEntryName); // TODO generate another id
-			
 			try {
 				Files.createSymbolicLink(journalEntryFile, txnFolder.relativize(resShadowAbsPath));
 			} catch (IOException e) {
 				throw new RuntimeException(e);
 			}			
 		}
-		
+
+		public void undeclareAccess() {
+			try {
+				// TODO Use delete instead and log an exception?
+				Files.deleteIfExists(journalEntryFile);
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}			
+		}
+
 		public boolean ownsWriteLock() {
 			try {
 				Path txnLink = Files.readSymbolicLink(writeLockFile);
