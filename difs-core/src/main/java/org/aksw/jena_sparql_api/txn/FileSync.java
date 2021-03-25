@@ -36,6 +36,9 @@ public class FileSync
 		this.targetFile = targetFile;
 		this.newContentFile = newContentFile;
 		this.oldContentFile = oldContentFile;
+		
+		this.oldContentTmpFile = oldContentFile.resolveSibling(oldContentFile.getFileName().toString() + ".tmp");
+		this.newContentTmpFile = newContentFile.resolveSibling(newContentFile.getFileName().toString() + ".tmp");
 	}
 
 
@@ -148,27 +151,41 @@ public class FileSync
 	public void preCommit() throws IOException {
 		// If there is no backup of the existing data then create it
 		if (!Files.exists(oldContentFile)) {
-			moveAtomic(targetFile, oldContentFile);
+			// If there is no prior file just create a 0 byte file
+			if (!Files.exists(targetFile)) {
+				Files.createDirectories(oldContentFile.getParent());
+				Files.createFile(oldContentFile);
+			} else {			
+				moveAtomic(targetFile, oldContentFile);
+			}
 		}
 
 		// Move the tmp content to new content
-		moveAtomic(newContentTmpFile, newContentFile);
+		if (Files.exists(newContentTmpFile)) {
+			moveAtomic(newContentTmpFile, newContentFile);
+		}
+		
 		
 		// Move new new content to the target
-		moveAtomic(newContentFile, targetFile);
+		if (Files.exists(newContentFile)) {
+			moveAtomic(newContentFile, targetFile);
+		}
 	}
 	
 	@Override
 	public void finalizeCommit() throws IOException {
-		Files.delete(oldContentTmpFile);	
-		Files.delete(oldContentFile);
+		Files.deleteIfExists(oldContentTmpFile);	
+		Files.deleteIfExists(oldContentFile);
 	}
 	
 	
 	@Override
 	public void rollback() throws IOException {
-		Files.delete(newContentFile);
-		Files.delete(newContentTmpFile);
-		moveAtomic(oldContentFile, targetFile);
+		Files.deleteIfExists(newContentFile);
+		Files.deleteIfExists(newContentTmpFile);
+		
+		if (Files.exists(oldContentFile)) {
+			moveAtomic(oldContentFile, targetFile);
+		}
 	}
 }

@@ -13,6 +13,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.aksw.jena_sparql_api.txn.FileSync;
 import org.aksw.jena_sparql_api.txn.RdfSync;
 import org.aksw.jena_sparql_api.txn.ResourceRepository;
 import org.aksw.jena_sparql_api.txn.Synced;
@@ -29,6 +30,7 @@ import org.apache.jena.sparql.core.DatasetGraphWrapper;
 import org.apache.jena.sparql.core.GraphView;
 import org.apache.jena.sparql.core.Quad;
 import org.apache.jena.system.Txn;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -58,6 +60,10 @@ public class DatasetGraphFromTxnMgr
 	protected LoadingCache<Path, Synced<?, DatasetGraph>> syncCache = CacheBuilder
 			.newBuilder()
 			.maximumSize(1000)
+			.removalListener(ev -> {
+				// TODO Sync here or elsewhere?
+				// getValue();
+			})
 			.build(new CacheLoader<Path, Synced<?, DatasetGraph>>() {
 				@Override
 				public Synced<?, DatasetGraph> load(Path key) throws Exception {
@@ -118,8 +124,18 @@ public class DatasetGraphFromTxnMgr
 			while (it.hasNext()) {
 				String res = it.next();
 				System.out.println("Syncing: " + res);
-				// local().getResourceApi(res).unlock();
-				// TODO sync
+
+				ResourceApi api = local().getResourceApi(res);
+				if (api.ownsWriteLock()) {
+					// If we own a write lock and the state is dirty then sync
+					Synced<?, DatasetGraph> synced = syncCache.getIfPresent(res);
+					if (synced != null) {
+						synced.save();
+					}
+					
+					FileSync fs = api.getFileSync();
+					fs.preCommit();
+				}
 			}
 
 			// Once all modified graphs are written out
@@ -127,7 +143,15 @@ public class DatasetGraphFromTxnMgr
 			local().addCommit();
 
 			// Run the commit actions
+			it = local().streamAccessedResources().iterator();
+			while (it.hasNext()) {
+				String res = it.next();
+				System.out.println("Unlocking: " + res);
+				local().getResourceApi(res).finalizeCommit();
+			}
+
 			
+			// Remove all locks
 			it = local().streamAccessedResources().iterator();
 			while (it.hasNext()) {
 				String res = it.next();

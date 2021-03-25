@@ -9,6 +9,7 @@ import org.aksw.jena_sparql_api.lock.LockManager;
 import org.aksw.jena_sparql_api.lock.LockManagerCompound;
 import org.aksw.jena_sparql_api.lock.LockManagerPath;
 import org.aksw.jena_sparql_api.lock.ThreadLockManager;
+import org.aksw.jena_sparql_api.txn.ResourceRepository;
 import org.aksw.jena_sparql_api.txn.TxnMgr;
 import org.apache.jena.sparql.core.DatasetGraph;
 
@@ -36,8 +37,8 @@ public class DifsFactory {
 		
 		LockManager<Path> lockMgr = new LockManagerCompound<>(Arrays.asList(processLockMgr, threadLockMgr));
 		
-		ResourceRepoImpl resStore = new ResourceRepoImpl(repoRootPath.resolve("store"));
-		ResourceRepoImpl resShadow = new ResourceRepoImpl(repoRootPath.resolve("shadow"));
+		ResourceRepository<String> resStore = ResourceRepoImpl.createWithUriToPath(repoRootPath.resolve("store"));
+		ResourceRepository<String> resShadow = ResourceRepoImpl.createWithUrlEncode(repoRootPath.resolve("shadow"));
 		
 		TxnMgr txnMgr = new TxnMgr(lockMgr, txnStore, resStore, resShadow);
 

@@ -5,12 +5,10 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
-import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.locks.Lock;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.aksw.commons.util.strings.StringUtils;
@@ -259,6 +257,18 @@ public class TxnImpl {
 			} catch (IOException e) {
 				throw new RuntimeException(e);
 			}			
+		}
+		
+		public boolean ownsWriteLock() {
+			try {
+				Path txnLink = Files.readSymbolicLink(writeLockFile);
+				Path txnAbsLink = writeLockFile.getParent().resolve(txnLink).toAbsolutePath().normalize();
+				
+				boolean result = txnAbsLink.equals(txnFolder);
+				return result;
+			} catch (Exception e) {
+				throw new RuntimeException(e);
+			}
 		}
 		
 		public Lock getMgmtLock() {
