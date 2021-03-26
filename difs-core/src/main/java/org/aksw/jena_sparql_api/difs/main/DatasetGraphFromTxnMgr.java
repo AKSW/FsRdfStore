@@ -233,8 +233,7 @@ public class DatasetGraphFromTxnMgr
 
 	@Override
 	public Graph getDefaultGraph() {
-		// TODO Auto-generated method stub
-		return null;
+		return GraphView.createNamedGraph(this, Quad.defaultGraphIRI);
 	}
 
 	@Override
@@ -421,7 +420,7 @@ public class DatasetGraphFromTxnMgr
     
 	@Override
 	public Iterator<Quad> find(Node g, Node s, Node p, Node o) {
-    	return local().listVisibleFiles().flatMap(api -> {
+    	return Txn.calculateRead(this, () -> local().listVisibleFiles().flatMap(api -> {
     		Path path = api.getResFilePath();
     		Synced<?, DatasetGraph> entry;
 			try {
@@ -432,7 +431,7 @@ public class DatasetGraphFromTxnMgr
     		DatasetGraph dg = entry.get();
     		Stream<Quad> r = Streams.stream(dg.find(g, s, p, o));
     		return r;
-    	}).iterator();
+    	}).iterator());
 
 //		Iterator<Quad> result = g == null || Node.ANY.equals(g)
 //			? findInAnyNamedGraphs(s, p, o)
@@ -442,8 +441,7 @@ public class DatasetGraphFromTxnMgr
 
 	@Override
 	public Iterator<Quad> findNG(Node g, Node s, Node p, Node o) {
-		// TODO Auto-generated method stub
-		return null;
+		return find(g, s, p, o);
 	}
 	
 }

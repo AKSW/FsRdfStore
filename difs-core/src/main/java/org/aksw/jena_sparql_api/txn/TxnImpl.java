@@ -75,6 +75,8 @@ public class TxnImpl {
 	    	// TODO Filter out graphs that were created after the transaction start
 	        result = tmp
 		            .filter(pathMatcher::matches)
+		            // We are interested in the folder - not the file itself: Get the parent
+		            .map(path -> path.getParent())
 		            .map(path -> txnMgr.resRepo.getRootPath().relativize(path))
 		            .map(relPath -> getResourceApi(relPath))
 		            .filter(ResourceApi::isVisible)
@@ -393,7 +395,7 @@ public class TxnImpl {
 				}
 
 				// If the resource's modified time is null then it did not exist yet
-				result = resTime != null && resTime.isAfter(txnTime); 
+				result = resTime != null && resTime.isBefore(txnTime); 
 			}
 
 			return result;
