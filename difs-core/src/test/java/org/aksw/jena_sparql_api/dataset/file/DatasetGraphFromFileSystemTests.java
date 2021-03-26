@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.stream.Collectors;
 
+import org.aksw.jena_sparql_api.txn.DatasetGraphFromFileSystem;
 import org.apache.jena.dboe.base.file.Location;
 import org.apache.jena.ext.com.google.common.collect.Streams;
 import org.apache.jena.graph.Node;
