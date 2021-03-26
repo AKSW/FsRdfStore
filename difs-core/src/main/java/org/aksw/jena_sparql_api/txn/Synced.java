@@ -12,6 +12,10 @@ public class Synced<E, T>
 	protected Function<E, T> loader;
 	protected Function<E, Instant> getLastModifiedDate;
 	
+	
+	// Saving a non-dirty entity is a no-op
+	protected boolean isDirty;
+	
 	public Synced(
 			E entity,
 			Function<E, T> loader,
@@ -44,12 +48,18 @@ public class Synced<E, T>
 		return instance;
 	}
 	
+	public Synced setDirty(boolean isDirty) {
+		this.isDirty = isDirty;
+		return this;
+	}
 //	public Synced set(T instance) {
 //		this.instance = instance;
 //	}
 	
 	public void save() {
-		saver.accept(entity, instance);
+		if (isDirty) {
+			saver.accept(entity, instance);
+		}
 	}
 }
 	

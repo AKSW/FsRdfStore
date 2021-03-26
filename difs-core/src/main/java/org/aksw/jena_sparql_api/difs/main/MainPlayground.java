@@ -15,7 +15,11 @@ public class MainPlayground {
 	public static void main(String[] args) throws IOException {
 		DatasetGraph dg = DifsFactory.newInstance().setPath(Paths.get("/tmp/testdb")).connect();
 		Dataset d = DatasetFactory.wrap(dg);
-		
+
+		Txn.executeWrite(d, () -> {
+			d.asDatasetGraph().delete(RDF.Nodes.first, RDF.Nodes.first, RDF.Nodes.type, RDF.Nodes.Property);
+		});
+
 		Txn.executeWrite(d, () -> {
 			d.asDatasetGraph().add(RDF.Nodes.type, RDF.Nodes.type, RDF.Nodes.type, RDF.Nodes.Property);
 			d.asDatasetGraph().add(RDF.Nodes.first, RDF.Nodes.first, RDF.Nodes.type, RDF.Nodes.Property);

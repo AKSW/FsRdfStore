@@ -1,10 +1,9 @@
 package org.aksw.jena_sparql_api.difs.main;
 
-import static org.apache.jena.system.Txn.calculateRead;
-
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -19,11 +18,13 @@ import org.apache.jena.graph.Graph;
 import org.apache.jena.graph.Node;
 import org.apache.jena.query.ReadWrite;
 import org.apache.jena.query.TxnType;
+import org.apache.jena.sparql.JenaTransactionException;
 import org.apache.jena.sparql.core.DatasetGraph;
 import org.apache.jena.sparql.core.DatasetGraphBase;
 import org.apache.jena.sparql.core.DatasetGraphWrapper;
 import org.apache.jena.sparql.core.GraphView;
 import org.apache.jena.sparql.core.Quad;
+import org.apache.jena.sparql.core.Transactional;
 import org.apache.jena.system.Txn;
 
 import com.google.common.cache.CacheBuilder;
@@ -255,31 +256,55 @@ public class DatasetGraphFromTxnMgr
 
 	
 	@Override
-	public void add(Node g, Node s, Node p, Node o) {		
-		Txn.executeWrite(this, () -> {
-			String iri = g.getURI();
-			Path relPath = txnMgr.getResRepo().getRelPath(iri);
-
-			// Get the resource and lock it for writing
-			// The lock is held until the end of the transaction
-			ResourceApi api = local().getResourceApi(iri);
-			api.declareAccess();
-			api.lock(true);
-			
-			Synced<?, DatasetGraph> synced;
-			try {
-				synced = syncCache.get(relPath);
-			} catch (ExecutionException e) {
-				throw new RuntimeException(e);
-			}
-			synced.get().add(g, s, p, o);
+	public void add(Node g, Node s, Node p, Node o) {
+		mutateGraph(g, dg -> {
+			boolean r = !dg.contains(g, s, p, o);
+			dg.add(g, s, p, o);
+			return r;
 		});
+
+//		mutate(this, () -> {
+//			String iri = g.getURI();
+//			Path relPath = txnMgr.getResRepo().getRelPath(iri);
+//
+//			// Get the resource and lock it for writing
+//			// The lock is held until the end of the transaction
+//			ResourceApi api = local().getResourceApi(iri);
+//			api.declareAccess();
+//			api.lock(true);
+//			
+//			Synced<?, DatasetGraph> synced;
+//			try {
+//				synced = syncCache.get(relPath);
+//			} catch (ExecutionException e) {
+//				throw new RuntimeException(e);
+//			}
+//			DatasetGraph dg = synced.get();
+//			
+//			if (!dg.contains(g, s, p, o)) {
+//				synced.setDirty(true);
+//				dg.add(g, s, p, o);
+//			}
+//		});
 	}
 	
 	@Override
-	public void delete(Node g, Node s, Node p, Node o) {		
-		Txn.executeWrite(this, () -> {
-			String iri = g.getURI();
+	public void delete(Node g, Node s, Node p, Node o) {
+		mutateGraph(g, dg -> {
+			boolean r = dg.contains(g, s, p, o);
+			dg.delete(g, s, p, o);
+			return r;
+		});
+	}
+	
+	/**
+	 * 
+	 * @param graphNode
+	 * @param mutator A predicate with side effect; true means a change was performed
+	 */
+	protected void mutateGraph(Node graphNode, Predicate<DatasetGraph> mutator) {
+		mutate(this, () -> {
+			String iri = graphNode.getURI();
 			Path relPath = txnMgr.getResRepo().getRelPath(iri);
 
 			// Get the resource and lock it for writing
@@ -294,10 +319,14 @@ public class DatasetGraphFromTxnMgr
 			} catch (ExecutionException e) {
 				throw new RuntimeException(e);
 			}
-			synced.get().delete(g, s, p, o);
+			
+			DatasetGraph dg = synced.get();
+			boolean isDirty = mutator.test(dg);
+			if (isDirty) {
+				synced.setDirty(true);
+			}
 		});
 	}
-	
 	
     /**
      * Copied from {@link DatasetGraphWrapper}
@@ -306,36 +335,31 @@ public class DatasetGraphFromTxnMgr
      * @param mutator
      * @param payload
      */
-//    private <T> void mutate(final Consumer<T> mutator, final T payload) {
-//        if (isInTransaction()) {
-//            if (!transactionMode().equals(WRITE)) {
-//                TxnType mode = transactionType();
-//                switch (mode) {
-//                case WRITE:
-//                    break;
-//                case READ:
-//                    throw new JenaTransactionException("Tried to write inside a READ transaction!");
-//                case READ_COMMITTED_PROMOTE:
-//                case READ_PROMOTE:
-//                    throw new RuntimeException("promotion not implemented");
-////                    boolean readCommitted = (mode == TxnType.READ_COMMITTED_PROMOTE);
-////                    promote(readCommitted);
-//                    //break;
-//                }
-//            }
-//
-//            // Make the version negative to mark it as 'dirty'
-//            version.set(-Math.abs(version.get()));
-//
-//            mutator.accept(payload);
-//        } else {
-//            executeWrite(this, () -> {
-//                version.set(-Math.abs(version.get()));
-//    //            System.out.println(version.get());
-//                mutator.accept(payload);
-//            });
-//        }
-//    }
+    public static <T> void mutate(Transactional txn, Runnable mutator) {
+        if (txn.isInTransaction()) {
+            if (!txn.transactionMode().equals(ReadWrite.WRITE)) {
+                TxnType mode = txn.transactionType();
+                switch (mode) {
+                case WRITE:
+                    break;
+                case READ:
+                    throw new JenaTransactionException("Tried to write inside a READ transaction!");
+                case READ_COMMITTED_PROMOTE:
+                case READ_PROMOTE:
+                    throw new RuntimeException("promotion not implemented");
+//                    boolean readCommitted = (mode == TxnType.READ_COMMITTED_PROMOTE);
+//                    promote(readCommitted);
+                    //break;
+                }
+            }
+
+            mutator.run();
+        } else {
+        	Txn.executeWrite(txn, () -> {
+                mutator.run();
+            });
+        }
+    }
 
     	
     @Override
@@ -376,8 +400,8 @@ public class DatasetGraphFromTxnMgr
     	super.deleteAny(g, s, p, o);
     }
     
-    private <T> T access(final Supplier<T> source) {
-        return isInTransaction() ? source.get() : calculateRead(this, source::get);
+    public static <T> T access(Transactional txn, Supplier<T> source) {
+        return txn.isInTransaction() ? source.get() : Txn.calculateRead(txn, source::get);
     }
 
     
