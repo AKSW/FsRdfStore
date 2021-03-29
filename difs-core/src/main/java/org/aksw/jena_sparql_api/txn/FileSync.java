@@ -56,13 +56,20 @@ public class FileSync
 //		Files.copy(targetFile, oldContentTmpFile, StandardCopyOption.REPLACE_EXISTING);
 //	}
 	
+	public Path getOldContentPath() {
+		Path result = Files.exists(oldContentFile)
+			? oldContentFile
+			: targetFile
+			;
+		return result;
+	}
+	
 	public Path getCurrentPath() {
-		Path result;
-		if (Files.exists(newContentFile)) {
-			result = newContentFile;
-		} else {
-			result = targetFile;
-		}
+		Path result = Files.exists(newContentFile)
+			? newContentFile
+			: targetFile
+			;
+
 		return result;
 	}
 

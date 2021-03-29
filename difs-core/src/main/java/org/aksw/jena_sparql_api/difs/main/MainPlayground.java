@@ -13,7 +13,10 @@ import org.apache.jena.vocabulary.RDF;
 
 public class MainPlayground {
 	public static void main(String[] args) throws IOException {
-		DatasetGraph dg = DifsFactory.newInstance().setPath(Paths.get("/tmp/testdb")).connect();
+		DatasetGraph dg = DifsFactory.newInstance()
+				.setPath(Paths.get("/tmp/testdb"))
+				.addIndex(RDF.Nodes.type, "type")
+				.connect();
 		Dataset d = DatasetFactory.wrap(dg);
 
 		Txn.executeWrite(d, () -> {

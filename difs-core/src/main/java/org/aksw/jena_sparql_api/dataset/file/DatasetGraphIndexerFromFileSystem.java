@@ -1,24 +1,22 @@
 package org.aksw.jena_sparql_api.dataset.file;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.aksw.commons.io.util.SymLinkUtils;
 import org.aksw.commons.io.util.UriToPathUtils;
 import org.aksw.commons.util.strings.StringUtils;
-import org.aksw.jena_sparql_api.txn.DatasetGraphFromFileSystem;
-import org.apache.jena.atlas.iterator.IteratorConcat;
+import org.aksw.jena_sparql_api.txn.ResourceRepository;
 import org.apache.jena.ext.com.google.common.io.MoreFiles;
 import org.apache.jena.graph.Node;
-import org.apache.jena.query.Dataset;
 import org.apache.jena.sparql.util.NodeUtils;
 
 public class DatasetGraphIndexerFromFileSystem
@@ -31,12 +29,15 @@ public class DatasetGraphIndexerFromFileSystem
     protected Function<String, Path> uriToPath;
     
     
+    String filename = "data.trig";
+    
     // We need that graph in order to re-use its mapping
     // from (subject) iris to paths
-    protected DatasetGraphFromFileSystem syncedGraph;
+    // protected DatasetGraphFromFileSystem syncedGraph;
+    protected ResourceRepository<String> syncedGraph;
 
     public DatasetGraphIndexerFromFileSystem(
-            DatasetGraphFromFileSystem syncedGraph,
+    		ResourceRepository<String> syncedGraph,
             Node propertyNode,
             Path basePath,
             Function<Node, Path> objectToPath) {
@@ -90,9 +91,10 @@ public class DatasetGraphIndexerFromFileSystem
             Path idxFullPath = basePath.resolve(idxRelPath);
 
             String tgtIri = g.getURI();
-            Path tgtBasePath = syncedGraph.getBasePath();
-            Path tgtRelPath = syncedGraph.getRelPathForIri(tgtIri);
-            String tgtFileName = syncedGraph.getFilename();
+            Path tgtBasePath = syncedGraph.getRootPath();
+            Path tgtRelPath = syncedGraph.getRelPath(tgtIri);
+            // String tgtFileName = syncedGraph.getFilename();
+            String tgtFileName = filename;
             Path symLinkTgtAbsFile = tgtBasePath.resolve(tgtRelPath).resolve(tgtFileName);
 //            Path symLinkTgtRelFile = idxFullPath.relativize(symLinkTgtAbsFile);
 
@@ -127,7 +129,9 @@ public class DatasetGraphIndexerFromFileSystem
 // as it would if we created it from the quad?
 //            String tgtIri = g.getURI();
 //            Path tgtRelPath = syncedGraph.getRelPathForIri(tgtIri);
-            String tgtFileName = syncedGraph.getFilename();
+//            String tgtFileName = syncedGraph.getFilename();
+            String tgtFileName = filename;
+
 
             Path symLinkSrcFile = idxFullPath.resolve(tgtFileName);
 //            Path symLinkTgtFile = tgtRelPath.resolve(tgtFileName);
@@ -163,8 +167,30 @@ public class DatasetGraphIndexerFromFileSystem
         return result;
     }
 
+    public static Stream<Entry<Path, Path>> readSymbolicLinks(Path sourceFolder, String prefix, String suffix) throws IOException {
+        return Files.list(sourceFolder)
+                .filter(Files::isSymbolicLink)
+                .filter(path -> {
+                    String fileName = path.getFileName().toString();
 
-    public Iterator<Node> listGraphNodes(Node s, Node p, Node o) {
+                    boolean r = fileName.startsWith(prefix) && fileName.endsWith(suffix);
+                    // TODO Check that the string between prefix and suffix is either an empty string
+                    // or corresponds to a number
+                    return r;
+                })
+                .flatMap(path -> {
+                    Stream<Entry<Path, Path>> r;
+                    try {
+                        r = Stream.of(new SimpleEntry<>(path, Files.readSymbolicLink(path)));
+                    } catch (IOException e) {
+                        // logger.warn("Error reading symoblic link; skipping", e);
+                        r = Stream.empty();
+                    }
+                    return r;
+                });
+    }
+    
+    public Stream<Path> listGraphNodes(Node s, Node p, Node o) {
         if (evaluateFind(s, p, o) == null) {
             throw new RuntimeException("Index is not suitable for lookups with predicate " + p);
         }
@@ -173,9 +199,9 @@ public class DatasetGraphIndexerFromFileSystem
 //        Path relPath = UriToPathUtils.resolvePath(iri);
         Path relPath = objectToPath.apply(o);
         //Path relPath = syncedGraph.getRelPathForIri(tgtIri);
-        String fileName = syncedGraph.getFilename();
+//        String fileName = syncedGraph.getFilename();
 
-        Path file = Paths.get(fileName);
+        Path file = Paths.get(filename);
         String prefix = MoreFiles.getNameWithoutExtension(file);
         String suffix = MoreFiles.getFileExtension(file);
         suffix = suffix.isEmpty() ? "" : "." + suffix;
@@ -184,38 +210,82 @@ public class DatasetGraphIndexerFromFileSystem
 
 
         Path symLinkSrcPath = basePath.resolve(relPath);
-        Map<Path, Path> symLinkTgtPaths;
+        Stream<Entry<Path, Path>> symLinkTgtPaths;
         try {
             symLinkTgtPaths = Files.exists(symLinkSrcPath)
-                    ? SymLinkUtils.readSymbolicLinks(symLinkSrcPath, prefix, suffix)
-                    : Collections.emptyMap();
+                    ? readSymbolicLinks(symLinkSrcPath, prefix, suffix)
+                    : Stream.empty();
+            
+            
+            Stream<Path> result = symLinkTgtPaths.map(srcToTgt -> {
+                Path absTgt = SymLinkUtils.resolveSymLinkAbsolute(srcToTgt.getKey(), srcToTgt.getValue());
+                Path tgtRelFile = syncedGraph.getRootPath().relativize(absTgt);
+
+                // Get the path (without the filename)
+                Path tgtRelPath = tgtRelFile.getParent(); 
+                return tgtRelPath;
+            });
+            
+            return result;
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
 
         // Load all graphs that are linked to and call find on the union
-
-        IteratorConcat<Node> result = new IteratorConcat<>();
-        for (Entry<Path, Path> srcToTgt : symLinkTgtPaths.entrySet()) {
-//            Path absSymLinkTgt = srcToTgt.getValue();
-//            Path tgtRelPath;
-//            try {
-                Path absTgt = SymLinkUtils.resolveSymLinkAbsolute(srcToTgt.getKey(), srcToTgt.getValue());
-                Path tgtRelFile = syncedGraph.getBasePath().relativize(absTgt);
-
-                // Get the path (without the filename)
-                Path tgtRelPath = tgtRelFile.getParent();
-//            } catch (IOException e1) {
-//                throw new RuntimeException(e1);
-//            }
-            Entry<Path, Dataset> e = syncedGraph.getOrCreate(tgtRelPath);
-
-            Iterator<Node> it = e.getValue().asDatasetGraph().listGraphNodes();
-            result.add(it);
-        }
-
-        return result;
-//        CatalogResolverFilesystem.allocateSymbolicLink(rawTarget, rawSourceFolder, baseName)
     }
+
+//    public Iterator<Node> listGraphNodes(Node s, Node p, Node o) {
+//        if (evaluateFind(s, p, o) == null) {
+//            throw new RuntimeException("Index is not suitable for lookups with predicate " + p);
+//        }
+//
+////        String iri = o.getURI();
+////        Path relPath = UriToPathUtils.resolvePath(iri);
+//        Path relPath = objectToPath.apply(o);
+//        //Path relPath = syncedGraph.getRelPathForIri(tgtIri);
+////        String fileName = syncedGraph.getFilename();
+//
+//        Path file = Paths.get(filename);
+//        String prefix = MoreFiles.getNameWithoutExtension(file);
+//        String suffix = MoreFiles.getFileExtension(file);
+//        suffix = suffix.isEmpty() ? "" : "." + suffix;
+//
+////        Path symLinkTgtFile = relPath.resolve(fileName);
+//
+//
+//        Path symLinkSrcPath = basePath.resolve(relPath);
+//        Map<Path, Path> symLinkTgtPaths;
+//        try {
+//            symLinkTgtPaths = Files.exists(symLinkSrcPath)
+//                    ? SymLinkUtils.readSymbolicLinks(symLinkSrcPath, prefix, suffix)
+//                    : Collections.emptyMap();
+//        } catch (Exception e) {
+//            throw new RuntimeException(e);
+//        }
+//
+//        // Load all graphs that are linked to and call find on the union
+//
+//        IteratorConcat<Node> result = new IteratorConcat<>();
+//        for (Entry<Path, Path> srcToTgt : symLinkTgtPaths.entrySet()) {
+////            Path absSymLinkTgt = srcToTgt.getValue();
+////            Path tgtRelPath;
+////            try {
+//                Path absTgt = SymLinkUtils.resolveSymLinkAbsolute(srcToTgt.getKey(), srcToTgt.getValue());
+//                Path tgtRelFile = syncedGraph.getRootPath().relativize(absTgt);
+//
+//                // Get the path (without the filename)
+//                Path tgtRelPath = tgtRelFile.getParent();
+////            } catch (IOException e1) {
+////                throw new RuntimeException(e1);
+////            }
+//            Entry<Path, Dataset> e = syncedGraph.getOrCreate(tgtRelPath);
+//
+//            Iterator<Node> it = e.getValue().asDatasetGraph().listGraphNodes();
+//            result.add(it);
+//        }
+//
+//        return result;
+////        CatalogResolverFilesystem.allocateSymbolicLink(rawTarget, rawSourceFolder, baseName)
+//    }
 
 }

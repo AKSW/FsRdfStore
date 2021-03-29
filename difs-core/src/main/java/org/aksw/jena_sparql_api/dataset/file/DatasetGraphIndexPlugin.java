@@ -1,6 +1,7 @@
 package org.aksw.jena_sparql_api.dataset.file;
 
-import java.util.Iterator;
+import java.nio.file.Path;
+import java.util.stream.Stream;
 
 import org.apache.jena.graph.Node;
 
@@ -17,7 +18,8 @@ public interface DatasetGraphIndexPlugin {
      * @param o
      * @return
      */
-    public Iterator<Node> listGraphNodes(Node s, Node p, Node o);
+    // public Iterator<Node> listGraphNodes(Node s, Node p, Node o);
+    public Stream<Path> listGraphNodes(Node s, Node p, Node o);
 
     public void add(Node g, Node s, Node p, Node o);
     public void delete(Node g, Node s, Node p, Node o);

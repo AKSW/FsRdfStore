@@ -1,19 +1,24 @@
 package org.aksw.jena_sparql_api.difs.main;
 
 import java.nio.file.Path;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
+import org.aksw.jena_sparql_api.dataset.file.DatasetGraphIndexPlugin;
+import org.aksw.jena_sparql_api.txn.DatasetGraphFromFileSystem;
 import org.aksw.jena_sparql_api.txn.FileSync;
-import org.aksw.jena_sparql_api.txn.RdfSync;
 import org.aksw.jena_sparql_api.txn.ResourceRepository;
-import org.aksw.jena_sparql_api.txn.Synced;
+import org.aksw.jena_sparql_api.txn.SyncedDataset;
 import org.aksw.jena_sparql_api.txn.TxnImpl;
 import org.aksw.jena_sparql_api.txn.TxnImpl.ResourceApi;
 import org.aksw.jena_sparql_api.txn.TxnMgr;
+import org.aksw.jena_sparql_api.utils.SetFromDatasetGraph;
 import org.apache.jena.graph.Graph;
 import org.apache.jena.graph.Node;
 import org.apache.jena.query.ReadWrite;
@@ -32,12 +37,16 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.Streams;
 
+
 public class DatasetGraphFromTxnMgr
 	extends DatasetGraphBase
 {
 	protected TxnMgr txnMgr;
 	protected ThreadLocal<TxnImpl> txns = ThreadLocal.withInitial(() -> null);
 	
+	
+    protected Collection<DatasetGraphIndexPlugin> indexers = Collections.synchronizedSet(new HashSet<>());
+
 	
 //    public static DatasetGraphFromTxnMgr createDefault(Path repoRoot) {
 //        PathMatcher pathMatcher = repoRoot.getFileSystem().getPathMatcher("glob:**/*.trig");
@@ -52,23 +61,24 @@ public class DatasetGraphFromTxnMgr
 //    }
 
 	
-	protected LoadingCache<Path, Synced<?, DatasetGraph>> syncCache = CacheBuilder
+	protected LoadingCache<Path, SyncedDataset> syncCache = CacheBuilder
 			.newBuilder()
 			.maximumSize(1000)
 			.removalListener(ev -> {
 				// TODO Sync here or elsewhere?
 				// getValue();
 			})
-			.build(new CacheLoader<Path, Synced<?, DatasetGraph>>() {
+			.build(new CacheLoader<Path, SyncedDataset>() {
 				@Override
-				public Synced<?, DatasetGraph> load(Path key) throws Exception {
+				public SyncedDataset load(Path key) throws Exception {
 					ResourceRepository<String> resRepo = txnMgr.getResRepo();
 					Path rootPath = resRepo.getRootPath();
 
 					// Path relPath = r// resRepo.getRelPath(key);
 					Path absPath = rootPath.resolve(key);					
+					FileSync fs = FileSync.create(absPath.resolve("data.trig"));
 					
-					return RdfSync.create(absPath);
+					return new SyncedDataset(fs);
 				}
 			});
 	
@@ -77,9 +87,10 @@ public class DatasetGraphFromTxnMgr
 		return txns.get();
 	}
 	
-	public DatasetGraphFromTxnMgr(TxnMgr txnMgr) {
+	public DatasetGraphFromTxnMgr(TxnMgr txnMgr, Collection<DatasetGraphIndexPlugin> indexers) {
 		super();
 		this.txnMgr = txnMgr;
+		this.indexers = indexers;
 	}
 
 	@Override
@@ -124,13 +135,24 @@ public class DatasetGraphFromTxnMgr
 				ResourceApi api = local().getResourceApi(res);
 				if (api.ownsWriteLock()) {
 					// If we own a write lock and the state is dirty then sync
-					Synced<?, DatasetGraph> synced = syncCache.getIfPresent(relPath);
+					SyncedDataset synced = syncCache.getIfPresent(relPath);
 					if (synced != null) {
 						synced.save();
 					}
 					
 					FileSync fs = api.getFileSync();
 					fs.preCommit();
+					
+					// TODO Run the indexers on the old and new state
+					for (DatasetGraphIndexPlugin indexer : indexers) {
+						for (Quad quad : SetFromDatasetGraph.wrap(synced.getDeletions())) {
+							indexer.delete(quad.getGraph(), quad.getSubject(), quad.getPredicate(), quad.getObject());
+						}
+						
+						for (Quad quad : SetFromDatasetGraph.wrap(synced.getAdditions())) {
+							indexer.add(quad.getGraph(), quad.getSubject(), quad.getPredicate(), quad.getObject());
+						}
+					}
 				}
 			}
 
@@ -209,23 +231,27 @@ public class DatasetGraphFromTxnMgr
 		boolean result = local() != null;
 		return result;
 	}
-	
-	
 
+	
+	public DatasetGraph mapToDatasetGraph(ResourceApi api) {
+		api.lock(local().isWrite());
+		Path path = api.getResFilePath();
+		SyncedDataset entry;
+		try {
+			entry = syncCache.get(path);
+		} catch (ExecutionException e) {
+			throw new RuntimeException(e);
+		}
+		return entry.get();
+	}
 
 	@Override
 	public Iterator<Node> listGraphNodes() {
-		Iterator<Node> result = Txn.calculateRead(this, () -> {
+		Iterator<Node> result = access(this, () -> {
 			return local().listVisibleFiles()
-	        	.flatMap(api -> {
-	        		Path path = api.getResFilePath();
-	        		Synced<?, DatasetGraph> entry;
-					try {
-						entry = syncCache.get(path);
-					} catch (ExecutionException e) {
-						throw new RuntimeException(e);
-					}
-	        		return Streams.stream(entry.get().listGraphNodes());
+				.map(this::mapToDatasetGraph)
+	        	.flatMap(dataset -> {
+	        		return Streams.stream(dataset.listGraphNodes());
 	        	}).iterator();
 		});
 		
@@ -253,7 +279,6 @@ public class DatasetGraphFromTxnMgr
 //		String iri = graphName.getURI();
 //		local().getResourceApi(null)
 	}
-
 	
 	@Override
 	public void add(Node g, Node s, Node p, Node o) {
@@ -313,7 +338,7 @@ public class DatasetGraphFromTxnMgr
 			api.declareAccess();
 			api.lock(true);
 			
-			Synced<?, DatasetGraph> synced;
+			SyncedDataset synced;
 			try {
 				synced = syncCache.get(relPath);
 			} catch (ExecutionException e) {
@@ -322,9 +347,9 @@ public class DatasetGraphFromTxnMgr
 			
 			DatasetGraph dg = synced.get();
 			boolean isDirty = mutator.test(dg);
-			if (isDirty) {
-				synced.setDirty(true);
-			}
+//			if (isDirty) {
+//				synced.setDirty(true);
+//			}
 		});
 	}
 	
@@ -360,6 +385,9 @@ public class DatasetGraphFromTxnMgr
             });
         }
     }
+    
+    
+    
 
     	
     @Override
@@ -405,9 +433,6 @@ public class DatasetGraphFromTxnMgr
     }
 
     
-//    protected Iter<Quad> findInSpecificNamedGraph(Node g, Node s, Node p , Node o) {
-//    	
-//    }
 //
 //
 //    // @Override
@@ -440,27 +465,60 @@ public class DatasetGraphFromTxnMgr
 //        }
 //        return iter ;
 
+    
+    protected Iterator<Quad> findInSpecificNamedGraph(Node g, Node s, Node p , Node o) {
+    	String res = g.getURI();
+    	Path relPath = txnMgr.getResRepo().getRelPath(res);
+
+    	
+    	return Stream.of(local().getResourceApi(relPath))
+        	.filter(ResourceApi::isVisible)
+			.map(this::mapToDatasetGraph)
+			.flatMap(dg -> Streams.stream(dg.find(Node.ANY, s, p, o))).iterator();
+    }
 
     
+    public Stream<ResourceApi> findResources(Node s, Node p, Node o) {
+        DatasetGraphIndexPlugin bestPlugin = DatasetGraphFromFileSystem.findBestMatch(
+        		indexers.iterator(),
+        		plugin -> plugin.evaluateFind(s, p, o), (lhs, rhs) -> lhs != null && lhs < rhs);
+
+		Stream<ResourceApi> visibleMatchingResources = bestPlugin != null
+				? bestPlugin.listGraphNodes(s, p, o)
+		            .map(relPath -> local().getResourceApi(relPath))
+		            .filter(ResourceApi::isVisible)
+		        : local().listVisibleFiles();
+
+		return visibleMatchingResources;
+    }
+
+    
+
+	public Iterator<Quad> findInAnyNamedGraphs(Node s, Node p, Node o) {
+		// findResources(s, p, o)
+		return access(this, () -> findResources(s, p, o)
+			.map(this::mapToDatasetGraph)
+			.flatMap(dg -> Streams.stream(dg.find(Node.ANY, s, p, o)))).iterator();
+	}
+
 	@Override
 	public Iterator<Quad> find(Node g, Node s, Node p, Node o) {
-    	return Txn.calculateRead(this, () -> local().listVisibleFiles().flatMap(api -> {
-    		Path path = api.getResFilePath();
-    		Synced<?, DatasetGraph> entry;
-			try {
-				entry = syncCache.get(path);
-			} catch (ExecutionException e) {
-				throw new RuntimeException(e);
-			}
-    		DatasetGraph dg = entry.get();
-    		Stream<Quad> r = Streams.stream(dg.find(g, s, p, o));
-    		return r;
-    	}).iterator());
-
-//		Iterator<Quad> result = g == null || Node.ANY.equals(g)
-//			? findInAnyNamedGraphs(s, p, o)
-//			: findInSpecificNamedGraph(g, s, p, o);
-//		return result;
+		Iterator<Quad> result = g == null || Node.ANY.equals(g)
+			? findInAnyNamedGraphs(s, p, o)
+			: findInSpecificNamedGraph(g, s, p, o);
+		return result;
+//    	return Txn.calculateRead(this, () -> local().listVisibleFiles().flatMap(api -> {
+//		Path path = api.getResFilePath();
+//		SyncedDataset entry;
+//		try {
+//			entry = syncCache.get(path);
+//		} catch (ExecutionException e) {
+//			throw new RuntimeException(e);
+//		}
+//		DatasetGraph dg = entry.get();
+//		Stream<Quad> r = Streams.stream(dg.find(g, s, p, o));
+//		return r;
+//	}).iterator());
 	}
 
 	@Override

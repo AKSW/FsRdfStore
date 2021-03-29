@@ -321,7 +321,7 @@ public class DatasetGraphFromFileSystem
                 indexPlugins.iterator(), plugin -> plugin.evaluateFind(s, p, o), (lhs, rhs) -> lhs != null && lhs < rhs);
 
         Iterator<Node> gnames = bestPlugin != null
-            ? bestPlugin.listGraphNodes(s, p, o)
+            ? null // FIXME bestPlugin.listGraphNodes(s, p, o)
             : listGraphNodes();
 
         IteratorConcat<Quad> iter = new IteratorConcat<>() ;
