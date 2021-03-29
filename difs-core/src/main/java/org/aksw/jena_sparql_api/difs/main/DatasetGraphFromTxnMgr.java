@@ -1,5 +1,6 @@
 package org.aksw.jena_sparql_api.difs.main;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.Collections;
@@ -128,8 +129,16 @@ public class DatasetGraphFromTxnMgr
 		return false;
 	}
 
+	/**
+	 * Commit first syncs any in-memory changes to temporary files.
+	 * Only if this step succeeds a 'commit' journal entry is created which indicates that
+	 * persisting of changes succeeded and and is ready to replace existing data.
+	 * 
+	 * 
+	 */
 	@Override
 	public void commit() {
+		
 		try {
 			Iterator<String> it = local().streamAccessedResources().iterator();
 			while (it.hasNext()) {
@@ -166,19 +175,51 @@ public class DatasetGraphFromTxnMgr
 			// add the statement that the commit action can now be run
 			local().addCommit();
 
+			applyJournal();
+		} catch (Exception e) {
+			try {
+				local().addRollback();
+			} catch (Exception e2) {
+				applyJournal();
+				throw new RuntimeException(e2);
+			}
+			
+			applyJournal();
+			
+			throw new RuntimeException(e);
+		}
+	}
+	
+	public void applyJournal() {
+		
+		boolean isCommit;
+		try {
+			isCommit = local().isCommit();
+		} catch (IOException e1) {
+			throw new RuntimeException(e1);
+		}
+		
+		try {
+
 			// Run the finalization actions
 			// As these actions remove undo information
 			// there is no turning back anymore
-			local().addFinalize();
+			if (isCommit) {
+				local().addFinalize();
+			}
 			
 			// TODO Stream the relPaths rather than the string resource names?
-			it = local().streamAccessedResources().iterator();
+			Iterator<String> it = local().streamAccessedResources().iterator();
 			while (it.hasNext()) {
 				String res = it.next();
 				System.out.println("Finalizing and unlocking: " + res);
 				ResourceApi api = local().getResourceApi(res);
-				
-				api.finalizeCommit();				
+			
+				if (isCommit) {
+					api.finalizeCommit();
+				} else {
+					api.rollback();
+				}
 				SyncedDataset synced = syncCache.getIfPresent(api.getResFilePath());
 				synced.updateState();
 				

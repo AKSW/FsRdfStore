@@ -9,7 +9,6 @@ import java.nio.file.PathMatcher;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 import java.time.Instant;
-import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -209,6 +208,20 @@ public class TxnImpl {
 	public void addRollback() throws IOException {
 		Files.createFile(rollbackFile);		
 	}
+	
+	public boolean isFinalize() throws IOException {
+		return Files.exists(finalizeFile);
+	}
+
+	public boolean isCommit() throws IOException {
+		return Files.exists(commitFile);
+	}
+
+	public boolean isRollback() throws IOException {
+		return Files.exists(rollbackFile);
+	}
+	
+	
 
 	
 	/** Stream the resources to which access has been declared */

@@ -17,10 +17,19 @@ import org.apache.jena.riot.RDFDataMgr;
 import org.apache.jena.riot.RDFFormat;
 import org.apache.jena.sparql.core.DatasetGraph;
 import org.apache.jena.sparql.core.Quad;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Sets;
 
 
+/**
+ * A path with cached metadata. Currently this includes only the timestamp.
+ * In the future this may include a content hash.
+ * 
+ * @author raven
+ *
+ */
 class PathState {
 	protected Path path;
 	protected Instant timestamp;
@@ -88,7 +97,13 @@ class PathState {
 
 
 public class SyncedDataset {
-	
+	private static final Logger logger = LoggerFactory.getLogger(SyncedDataset.class);
+
+	/**
+	 * A class that holds the original and current state of path metadata.
+	 * 
+	 * @author raven
+	 */
 	public static class State {
 		protected PathState originalState;
 		protected PathState currentState;
@@ -190,7 +205,7 @@ public class SyncedDataset {
 			new PathState(diffSourcePath, diffTimestamp)
 		);
 
-		System.err.println("Loaded state: " + result);
+		logger.debug("Loaded state: " + result);
 		
 		return result;
 	}
