@@ -3,6 +3,7 @@ package org.aksw.jena_sparql_api.difs.main;
 import java.io.IOException;
 import java.nio.file.Paths;
 
+import org.apache.jena.graph.Node;
 import org.apache.jena.query.Dataset;
 import org.apache.jena.query.DatasetFactory;
 import org.apache.jena.riot.RDFDataMgr;
@@ -30,5 +31,9 @@ public class MainPlayground {
 	
 		
 		RDFDataMgr.write(System.out, d, RDFFormat.TRIG_PRETTY);
+		
+		d.asDatasetGraph().find(Node.ANY, Node.ANY, RDF.Nodes.type, RDF.Nodes.Property)
+			.forEachRemaining(x -> System.out.println("Got result: " + x));
+		
 	}
 }

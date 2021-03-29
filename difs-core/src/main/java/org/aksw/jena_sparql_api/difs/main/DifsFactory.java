@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 
 import org.aksw.jena_sparql_api.dataset.file.DatasetGraphIndexPlugin;
 import org.aksw.jena_sparql_api.dataset.file.DatasetGraphIndexerFromFileSystem;
@@ -27,6 +28,7 @@ public class DifsFactory {
 	
 	public DifsFactory setPath(Path repoRootPath) {
 		this.repoRootPath = repoRootPath;
+		this.indexers = new LinkedHashSet<>();
 		return this;
 	}
 	

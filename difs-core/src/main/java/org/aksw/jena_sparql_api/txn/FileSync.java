@@ -6,6 +6,7 @@ import java.io.OutputStream;
 import java.nio.channels.FileChannel;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
@@ -91,9 +92,14 @@ public class FileSync
 	}
 	
 	public Instant getLastModifiedTime() throws IOException {
+		Instant result;
 		Path currentPath = getCurrentPath();
-		FileTime ft = Files.getLastModifiedTime(currentPath);
-		Instant result = ft.toInstant();
+		try {
+			FileTime ft = Files.getLastModifiedTime(currentPath);
+			result = ft.toInstant();
+		} catch (NoSuchFileException e) {
+			result = null;
+		}
 		return result;
 	}
 

@@ -8,6 +8,7 @@ import java.util.Iterator;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.aksw.jena_sparql_api.dataset.file.DatasetGraphIndexPlugin;
@@ -31,6 +32,8 @@ import org.apache.jena.sparql.core.GraphView;
 import org.apache.jena.sparql.core.Quad;
 import org.apache.jena.sparql.core.Transactional;
 import org.apache.jena.system.Txn;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -41,6 +44,8 @@ import com.google.common.collect.Streams;
 public class DatasetGraphFromTxnMgr
 	extends DatasetGraphBase
 {
+	protected static final Logger logger = LoggerFactory.getLogger(DatasetGraphFromTxnMgr.class);
+	
 	protected TxnMgr txnMgr;
 	protected ThreadLocal<TxnImpl> txns = ThreadLocal.withInitial(() -> null);
 	
@@ -142,6 +147,7 @@ public class DatasetGraphFromTxnMgr
 					
 					FileSync fs = api.getFileSync();
 					fs.preCommit();
+					synced.updateState();
 					
 					// TODO Run the indexers on the old and new state
 					for (DatasetGraphIndexPlugin indexer : indexers) {
@@ -165,13 +171,17 @@ public class DatasetGraphFromTxnMgr
 			// there is no turning back anymore
 			local().addFinalize();
 			
+			// TODO Stream the relPaths rather than the string resource names?
 			it = local().streamAccessedResources().iterator();
 			while (it.hasNext()) {
 				String res = it.next();
 				System.out.println("Finalizing and unlocking: " + res);
 				ResourceApi api = local().getResourceApi(res);
 				
-				api.finalizeCommit();
+				api.finalizeCommit();				
+				SyncedDataset synced = syncCache.getIfPresent(api.getResFilePath());
+				synced.updateState();
+				
 				api.unlock();
 				api.undeclareAccess();
 			}
@@ -234,6 +244,7 @@ public class DatasetGraphFromTxnMgr
 
 	
 	public DatasetGraph mapToDatasetGraph(ResourceApi api) {
+		api.declareAccess();
 		api.lock(local().isWrite());
 		Path path = api.getResFilePath();
 		SyncedDataset entry;
@@ -250,6 +261,7 @@ public class DatasetGraphFromTxnMgr
 		Iterator<Node> result = access(this, () -> {
 			return local().listVisibleFiles()
 				.map(this::mapToDatasetGraph)
+				.collect(Collectors.toList()).stream() // FIXME only collect if not in a txn
 	        	.flatMap(dataset -> {
 	        		return Streams.stream(dataset.listGraphNodes());
 	        	}).iterator();
@@ -284,7 +296,14 @@ public class DatasetGraphFromTxnMgr
 	public void add(Node g, Node s, Node p, Node o) {
 		mutateGraph(g, dg -> {
 			boolean r = !dg.contains(g, s, p, o);
-			dg.add(g, s, p, o);
+			if (r) {
+				dg.add(g, s, p, o);
+				for (DatasetGraphIndexPlugin indexer : indexers) {
+					indexer.add(g, s, p, o);
+				}
+			}
+			
+			
 			return r;
 		});
 
@@ -317,7 +336,12 @@ public class DatasetGraphFromTxnMgr
 	public void delete(Node g, Node s, Node p, Node o) {
 		mutateGraph(g, dg -> {
 			boolean r = dg.contains(g, s, p, o);
-			dg.delete(g, s, p, o);
+			if (r) {
+				for (DatasetGraphIndexPlugin indexer : indexers) {
+					indexer.delete(g, s, p, o);
+				}
+				dg.delete(g, s, p, o);
+			}
 			return r;
 		});
 	}
@@ -471,10 +495,11 @@ public class DatasetGraphFromTxnMgr
     	Path relPath = txnMgr.getResRepo().getRelPath(res);
 
     	
-    	return Stream.of(local().getResourceApi(relPath))
+    	return access(this, () -> Stream.of(local().getResourceApi(relPath))
         	.filter(ResourceApi::isVisible)
 			.map(this::mapToDatasetGraph)
-			.flatMap(dg -> Streams.stream(dg.find(Node.ANY, s, p, o))).iterator();
+				.collect(Collectors.toList()).stream() // FIXME only collect if not in a txn
+			.flatMap(dg -> Streams.stream(dg.find(Node.ANY, s, p, o))).iterator());
     }
 
     
@@ -498,6 +523,7 @@ public class DatasetGraphFromTxnMgr
 		// findResources(s, p, o)
 		return access(this, () -> findResources(s, p, o)
 			.map(this::mapToDatasetGraph)
+				.collect(Collectors.toList()).stream() // FIXME only collect if not in a txn
 			.flatMap(dg -> Streams.stream(dg.find(Node.ANY, s, p, o)))).iterator();
 	}
 
