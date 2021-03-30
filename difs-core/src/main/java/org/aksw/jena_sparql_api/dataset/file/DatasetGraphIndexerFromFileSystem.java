@@ -1,7 +1,6 @@
 package org.aksw.jena_sparql_api.dataset.file;
 
 import java.io.IOException;
-import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -14,7 +13,6 @@ import java.util.stream.Stream;
 
 import org.aksw.commons.io.util.SymLinkUtils;
 import org.aksw.commons.io.util.UriToPathUtils;
-import org.aksw.commons.util.exception.ExceptionUtilsAksw;
 import org.aksw.commons.util.strings.StringUtils;
 import org.aksw.jena_sparql_api.txn.ResourceRepository;
 import org.apache.jena.ext.com.google.common.io.MoreFiles;
@@ -62,6 +60,17 @@ public class DatasetGraphIndexerFromFileSystem
         return result;
     }
 
+
+    public static Path iriOrLexicalFormToToPath(Node node) {
+    	Path result = node.isLiteral()
+    			? Paths.get(StringUtils.urlEncode(node.getLiteralLexicalForm()))
+    			: node.isURI()
+    				? UriToPathUtils.resolvePath(node.getURI())
+    				: node.isBlank()
+    					? Paths.get(node.getBlankNodeLabel())
+    					: null;
+    	return result;
+    }
 
     public static Path mavenStringToToPath(Node node) {
         String str = node.isURI() ? node.getURI() : NodeUtils.stringLiteral(node);
@@ -115,8 +124,6 @@ public class DatasetGraphIndexerFromFileSystem
                 // TODO Possibly extend allocateSymbolicLink with a flag to update the symlink rather
                 // having to catch FileAlreadyExistsException here
                 SymLinkUtils.allocateSymbolicLink(symLinkTgtAbsFile, idxFullPath, prefix, suffix);
-            } catch (FileAlreadyExistsException e) {
-            	// nothing to do
             } catch (Exception e) {
                  throw new RuntimeException(e);
             }

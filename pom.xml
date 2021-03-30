@@ -54,7 +54,7 @@
 	</developers>
 
 	<properties>
-		<aksw.commons.version>0.8.16-SNAPSHOT</aksw.commons.version>
+		<aksw.commons.version>0.9.1-SNAPSHOT</aksw.commons.version>
 
 		<jena.version>3.17.0</jena.version>
 		<jena-sparql-api.subversion>2-SNAPSHOT</jena-sparql-api.subversion>

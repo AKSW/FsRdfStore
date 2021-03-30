@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashSet;
+import java.util.function.Function;
 
 import org.aksw.jena_sparql_api.dataset.file.DatasetGraphIndexPlugin;
 import org.aksw.jena_sparql_api.dataset.file.DatasetGraphIndexerFromFileSystem;
@@ -32,7 +33,7 @@ public class DifsFactory {
 		return this;
 	}
 	
-	public DifsFactory addIndex(Node predicate, String name) throws IOException {
+	public DifsFactory addIndex(Node predicate, String name, Function<Node, Path> objectToPath) throws IOException {
 //        raw, DCTerms.identifier.asNode(),
 //        path = Paths.get("/tmp/graphtest/index/by-id"),
 //        DatasetGraphIndexerFromFileSystem::mavenStringToToPath
@@ -45,7 +46,7 @@ public class DifsFactory {
 				resStore,
 				predicate,
 				indexFolder,
-				DatasetGraphIndexerFromFileSystem::uriNodeToPath));
+				objectToPath));
 		
 		return this;
 	}
