@@ -265,6 +265,10 @@ public class SyncedDataset {
 		return diff;
 	}
 	
+	public DatasetGraphDiff getDiff() {
+		return diff;
+	}
+	
 	public DatasetGraph getAdditions() {
 		return diff.getAdded();
 	}
@@ -329,6 +333,9 @@ public class SyncedDataset {
 				
 				// Update metadata
 				updateState();
+				
+				
+				
 			} catch (IOException e) {
 				throw new RuntimeException(e);
 			}

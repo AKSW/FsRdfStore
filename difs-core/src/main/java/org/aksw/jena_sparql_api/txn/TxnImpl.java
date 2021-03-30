@@ -19,12 +19,16 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.aksw.commons.util.strings.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 
 public class TxnImpl {
+	private static final Logger logger = LoggerFactory.getLogger(TxnImpl.class);
+	
 	protected TxnMgr txnMgr;
 	protected String txnId;
 	protected Path txnFolder;
@@ -426,6 +430,7 @@ public class TxnImpl {
 					}
 					
 				} else {
+					logger.debug("Declaring access from " + journalEntryFile + " to " + actualLinkTarget);
 					Files.createSymbolicLink(journalEntryFile, actualLinkTarget);
 				}
 			} catch (IOException e) {

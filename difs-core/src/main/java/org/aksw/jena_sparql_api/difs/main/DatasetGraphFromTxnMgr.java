@@ -20,7 +20,6 @@ import org.aksw.jena_sparql_api.txn.SyncedDataset;
 import org.aksw.jena_sparql_api.txn.TxnImpl;
 import org.aksw.jena_sparql_api.txn.TxnImpl.ResourceApi;
 import org.aksw.jena_sparql_api.txn.TxnMgr;
-import org.aksw.jena_sparql_api.utils.SetFromDatasetGraph;
 import org.apache.jena.graph.Graph;
 import org.apache.jena.graph.Node;
 import org.apache.jena.query.ReadWrite;
@@ -69,7 +68,7 @@ public class DatasetGraphFromTxnMgr
 	
 	protected LoadingCache<Path, SyncedDataset> syncCache = CacheBuilder
 			.newBuilder()
-			.maximumSize(1000)
+			.maximumSize(10000)
 			.removalListener(ev -> {
 				// TODO Sync here or elsewhere?
 				// getValue();
@@ -143,7 +142,7 @@ public class DatasetGraphFromTxnMgr
 			Iterator<String> it = local().streamAccessedResources().iterator();
 			while (it.hasNext()) {
 				String res = it.next();
-				System.out.println("Syncing: " + res);
+				logger.debug("Syncing: " + res);
 				Path relPath = txnMgr.getResRepo().getRelPath(res);
 
 				ResourceApi api = local().getResourceApi(res);
@@ -155,19 +154,23 @@ public class DatasetGraphFromTxnMgr
 					}
 					
 					FileSync fs = api.getFileSync();
-					fs.preCommit();
-					synced.updateState();
-					
-					// TODO Run the indexers on the old and new state
-					for (DatasetGraphIndexPlugin indexer : indexers) {
-						for (Quad quad : SetFromDatasetGraph.wrap(synced.getDeletions())) {
-							indexer.delete(quad.getGraph(), quad.getSubject(), quad.getPredicate(), quad.getObject());
-						}
-						
-						for (Quad quad : SetFromDatasetGraph.wrap(synced.getAdditions())) {
-							indexer.add(quad.getGraph(), quad.getSubject(), quad.getPredicate(), quad.getObject());
-						}
+					if (synced.isDirty()) {
+						fs.preCommit();
+						synced.updateState();
+//						synced.getAdditions().clear();
+//						synced.getDeletions().clear();
 					}
+					
+					// The indexers are now run immediately on insert
+//					for (DatasetGraphIndexPlugin indexer : indexers) {
+//						for (Quad quad : SetFromDatasetGraph.wrap(synced.getDeletions())) {
+//							indexer.delete(quad.getGraph(), quad.getSubject(), quad.getPredicate(), quad.getObject());
+//						}
+//						
+//						for (Quad quad : SetFromDatasetGraph.wrap(synced.getAdditions())) {
+//							indexer.add(quad.getGraph(), quad.getSubject(), quad.getPredicate(), quad.getObject());
+//						}
+//					}
 				}
 			}
 
@@ -189,9 +192,9 @@ public class DatasetGraphFromTxnMgr
 			throw new RuntimeException(e);
 		}
 	}
-	
-	public void applyJournal() {
-		
+
+
+	protected void applyJournal() {
 		boolean isCommit;
 		try {
 			isCommit = local().isCommit();
@@ -212,7 +215,7 @@ public class DatasetGraphFromTxnMgr
 			Iterator<String> it = local().streamAccessedResources().iterator();
 			while (it.hasNext()) {
 				String res = it.next();
-				System.out.println("Finalizing and unlocking: " + res);
+				logger.debug("Finalizing and unlocking: " + res);
 				ResourceApi api = local().getResourceApi(res);
 			
 				if (isCommit) {
@@ -221,7 +224,14 @@ public class DatasetGraphFromTxnMgr
 					api.rollback();
 				}
 				SyncedDataset synced = syncCache.getIfPresent(api.getResFilePath());
-				synced.updateState();
+				if (synced != null) {
+					if (isCommit) {
+						synced.getDiff().applyChanges();					
+					} else {
+						synced.getDiff().clearChanges();
+					}
+					synced.updateState();
+				}
 				
 				api.unlock();
 				api.undeclareAccess();
@@ -340,7 +350,7 @@ public class DatasetGraphFromTxnMgr
 			if (r) {
 				dg.add(g, s, p, o);
 				for (DatasetGraphIndexPlugin indexer : indexers) {
-					indexer.add(g, s, p, o);
+					indexer.add(dg, g, s, p, o);
 				}
 			}
 			
@@ -379,7 +389,7 @@ public class DatasetGraphFromTxnMgr
 			boolean r = dg.contains(g, s, p, o);
 			if (r) {
 				for (DatasetGraphIndexPlugin indexer : indexers) {
-					indexer.delete(g, s, p, o);
+					indexer.delete(dg, g, s, p, o);
 				}
 				dg.delete(g, s, p, o);
 			}

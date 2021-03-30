@@ -1,6 +1,7 @@
 package org.aksw.jena_sparql_api.dataset.file;
 
 import java.io.IOException;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -13,11 +14,16 @@ import java.util.stream.Stream;
 
 import org.aksw.commons.io.util.SymLinkUtils;
 import org.aksw.commons.io.util.UriToPathUtils;
+import org.aksw.commons.util.exception.ExceptionUtilsAksw;
 import org.aksw.commons.util.strings.StringUtils;
 import org.aksw.jena_sparql_api.txn.ResourceRepository;
 import org.apache.jena.ext.com.google.common.io.MoreFiles;
 import org.apache.jena.graph.Node;
+import org.apache.jena.sparql.core.DatasetGraph;
+import org.apache.jena.sparql.core.Quad;
 import org.apache.jena.sparql.util.NodeUtils;
+
+import com.google.common.collect.Streams;
 
 public class DatasetGraphIndexerFromFileSystem
     implements DatasetGraphIndexPlugin
@@ -78,7 +84,7 @@ public class DatasetGraphIndexerFromFileSystem
 
 
     @Override
-    public void add(Node g, Node s, Node p, Node o) {
+    public void add(DatasetGraph dg, Node g, Node s, Node p, Node o) {
 //        Node g = quad.getGraph();
 //        Node s = quad.getSubject();
 //        Node p = quad.getPredicate();
@@ -105,16 +111,25 @@ public class DatasetGraphIndexerFromFileSystem
 
             try {
                 Files.createDirectories(idxFullPath);
+                
+                // TODO Possibly extend allocateSymbolicLink with a flag to update the symlink rather
+                // having to catch FileAlreadyExistsException here
                 SymLinkUtils.allocateSymbolicLink(symLinkTgtAbsFile, idxFullPath, prefix, suffix);
+            } catch (FileAlreadyExistsException e) {
+            	// nothing to do
             } catch (Exception e) {
-                throw new RuntimeException(e);
+                 throw new RuntimeException(e);
             }
         }
     }
 
 
+    /**
+     * Delete a quad from the index.
+     * 
+     */
     @Override
-    public void delete(Node g, Node s, Node p, Node o) {
+    public void delete(DatasetGraph dg, Node g, Node s, Node p, Node o) {
 //        Node g = quad.getGraph();
 //        Node s = quad.getSubject();
 //        Node p = quad.getPredicate();
@@ -123,33 +138,47 @@ public class DatasetGraphIndexerFromFileSystem
 //            String idxIri = o.getURI();
 //            Path idxRelPath = UriToPathUtils.resolvePath(idxIri);
             Path idxRelPath = objectToPath.apply(o);
-            Path idxFullPath = basePath.resolve(idxRelPath);
-
-// Should we sanity check that the symlink refers to the exact same target
-// as it would if we created it from the quad?
-//            String tgtIri = g.getURI();
-//            Path tgtRelPath = syncedGraph.getRelPathForIri(tgtIri);
-//            String tgtFileName = syncedGraph.getFilename();
-            String tgtFileName = filename;
-
-
-            Path symLinkSrcFile = idxFullPath.resolve(tgtFileName);
-//            Path symLinkTgtFile = tgtRelPath.resolve(tgtFileName);
-
-
-            try {
-                boolean isSymlink = Files.isSymbolicLink(symLinkSrcFile);
-                if (isSymlink) {
-                    Files.delete(symLinkSrcFile);
-                    // TODO Delete empty directory
-                    // FileUtils.deleteDirectoryIfEmpty(basePath, symLinkSrcFile.getParent());
-                }
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }
+            
+            Quad deleteQuad = new Quad(g, s, p, o);
+            
+            // Check whether any other quad in dg maps to the same idxRelPath - if so do not delete the symlink
+            long count = Streams.stream(dg.find())
+            	.filter(q -> !q.equals(deleteQuad))
+            	.filter(q -> {
+            		Path otherRelPath = objectToPath.apply(q.getObject());
+            		return otherRelPath.equals(idxRelPath);
+            	})
+            	.count();
+            
+            if (count == 0) {
+	            
+	            Path idxFullPath = basePath.resolve(idxRelPath);
+	
+	// Should we sanity check that the symlink refers to the exact same target
+	// as it would if we created it from the quad?
+	//            String tgtIri = g.getURI();
+	//            Path tgtRelPath = syncedGraph.getRelPathForIri(tgtIri);
+	//            String tgtFileName = syncedGraph.getFilename();
+	            String tgtFileName = filename;
+	
+	
+	            Path symLinkSrcFile = idxFullPath.resolve(tgtFileName);
+	//            Path symLinkTgtFile = tgtRelPath.resolve(tgtFileName);
+	
+	
+	            try {
+	                boolean isSymlink = Files.isSymbolicLink(symLinkSrcFile);
+	                if (isSymlink) {
+	                    Files.delete(symLinkSrcFile);
+	                    // TODO Delete empty directory
+	                    // FileUtils.deleteDirectoryIfEmpty(basePath, symLinkSrcFile.getParent());
+	                }
+	            } catch (Exception e) {
+	                throw new RuntimeException(e);
+	            }
+	        }
+	    }
     }
-
 
 //    protected void onPreCommit(DatasetGraphDiff diff) {
 //        diff.getRemoved().find(Node.ANY, Node.ANY, propertyNode, Node.ANY)

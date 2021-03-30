@@ -262,11 +262,11 @@ public class DatasetGraphWithSyncOld
 
         // Undo the actions on the plugins
         dgd.getRemoved().find().forEachRemaining(quad -> {
-            indexPlugins.forEach(plugin -> plugin.add(quad.getGraph(), quad.getSubject(), quad.getPredicate(), quad.getObject()));
+            indexPlugins.forEach(plugin -> plugin.add(dgd, quad.getGraph(), quad.getSubject(), quad.getPredicate(), quad.getObject()));
         });
 
         dgd.getAdded().find().forEachRemaining(quad -> {
-            indexPlugins.forEach(plugin -> plugin.delete(quad.getGraph(), quad.getSubject(), quad.getPredicate(), quad.getObject()));
+            indexPlugins.forEach(plugin -> plugin.delete(dgd, quad.getGraph(), quad.getSubject(), quad.getPredicate(), quad.getObject()));
         });
 
         super.abort();
@@ -352,7 +352,7 @@ public class DatasetGraphWithSyncOld
     public void add(Node g, Node s, Node p, Node o) {
         mutate(x -> {
             if (!contains(g, s, p, o)) {
-                indexPlugins.forEach(plugin -> plugin.add(g, s, p, o));
+                indexPlugins.forEach(plugin -> plugin.add(getW(), g, s, p, o));
                 getW().add(g, s, p, o);
             }
         }, null);
@@ -363,7 +363,7 @@ public class DatasetGraphWithSyncOld
     public void delete(Node g, Node s, Node p, Node o) {
         mutate(x -> {
             if (contains(g, s, p, o)) {
-                indexPlugins.forEach(plugin -> plugin.delete(g, s, p, o));
+                indexPlugins.forEach(plugin -> plugin.delete(getW(), g, s, p, o));
                 getW().delete(g, s, p, o);
             }
         }, null);

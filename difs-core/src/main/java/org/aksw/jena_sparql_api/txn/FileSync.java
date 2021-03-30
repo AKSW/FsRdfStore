@@ -163,19 +163,20 @@ public class FileSync
 	 */
 	@Override
 	public void preCommit() throws IOException {
-		// If there is no backup of the existing data then create it
-		if (!Files.exists(oldContentFile)) {
-			// If there is no prior file just create a 0 byte file
-			if (!Files.exists(targetFile)) {
-				Files.createDirectories(oldContentFile.getParent());
-				Files.createFile(oldContentFile);
-			} else {			
-				moveAtomic(targetFile, oldContentFile);
-			}
-		}
-
-		// Move the tmp content to new content
+		// If there is a pending change
 		if (Files.exists(newContentTmpFile)) {
+			// If there is no backup of the existing data then create it
+			if (!Files.exists(oldContentFile)) {
+				// If there is no prior file just create a 0 byte file
+				if (!Files.exists(targetFile)) {
+					Files.createDirectories(oldContentFile.getParent());
+					Files.createFile(oldContentFile);
+				} else {
+					moveAtomic(targetFile, oldContentFile);
+				}
+			}
+
+			// Move the tmp content to new content
 			moveAtomic(newContentTmpFile, newContentFile);
 		}
 		

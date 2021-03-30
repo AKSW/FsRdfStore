@@ -19,6 +19,7 @@
 		<module>difs-git</module>
 		<module>difs-system</module>
 		<module>difs-cli</module>
+		<module>difs-examples</module>
 	</modules>
 
 	<issueManagement>
@@ -56,7 +57,7 @@
 		<aksw.commons.version>0.8.16-SNAPSHOT</aksw.commons.version>
 
 		<jena.version>3.17.0</jena.version>
-		<jena-sparql-api.subversion>1-SNAPSHOT</jena-sparql-api.subversion>
+		<jena-sparql-api.subversion>2-SNAPSHOT</jena-sparql-api.subversion>
 		<jena-sparql-api.version>${jena.version}-${jena-sparql-api.subversion}</jena-sparql-api.version>
 
 
@@ -76,6 +77,26 @@
 
 	<dependencyManagement>
 		<dependencies>
+			<dependency>
+				<groupId>org.aksw.difs</groupId>
+				<artifactId>difs-core</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+
+
+			<dependency>
+				<groupId>log4j</groupId>
+				<artifactId>log4j</artifactId>
+				<version>1.2.17</version>
+			</dependency>
+
+			<dependency>
+				<groupId>org.slf4j</groupId>
+				<artifactId>slf4j-log4j12</artifactId>
+				<version>1.7.25</version>
+			</dependency>
+
+
 			<dependency>
 				<groupId>org.apache.jena</groupId>
 				<artifactId>jena-tdb2</artifactId>

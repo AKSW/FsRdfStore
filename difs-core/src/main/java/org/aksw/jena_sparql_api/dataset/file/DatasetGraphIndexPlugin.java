@@ -4,6 +4,7 @@ import java.nio.file.Path;
 import java.util.stream.Stream;
 
 import org.apache.jena.graph.Node;
+import org.apache.jena.sparql.core.DatasetGraph;
 
 public interface DatasetGraphIndexPlugin {
     public Float evaluateFind(Node s, Node p, Node o);
@@ -21,6 +22,6 @@ public interface DatasetGraphIndexPlugin {
     // public Iterator<Node> listGraphNodes(Node s, Node p, Node o);
     public Stream<Path> listGraphNodes(Node s, Node p, Node o);
 
-    public void add(Node g, Node s, Node p, Node o);
-    public void delete(Node g, Node s, Node p, Node o);
+    public void add(DatasetGraph dg, Node g, Node s, Node p, Node o);
+    public void delete(DatasetGraph dg, Node g, Node s, Node p, Node o);
 }
