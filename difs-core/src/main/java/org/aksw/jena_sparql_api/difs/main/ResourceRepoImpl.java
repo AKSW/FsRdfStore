@@ -37,7 +37,16 @@ public class ResourceRepoImpl
 
 	/** Create file names by means of urlencoding and prepending a dot ('.') */
 	public static ResourceRepository<String> createWithUrlEncode(Path rootPath) {
-		return new ResourceRepoImpl(rootPath, name -> Paths.get("." + StringUtils.urlEncode(name)));
+		return new ResourceRepoImpl(rootPath, ResourceRepoImpl::stringToPath);
 	}
-
+	
+	public static Path stringToPath(String name) {
+		String str = StringUtils.urlEncode(name);
+		if (str.length() > 64) {
+			str = StringUtils.md5Hash(str);
+		}
+		
+		Path r = Paths.get(str);
+		return r;
+	}
 }

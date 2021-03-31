@@ -3,6 +3,7 @@ package org.aksw.jena_sparql_api.txn;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
@@ -239,14 +240,31 @@ public class TxnImpl {
 //	    .collect(Collectors.toList());
 	    	
 	    return Files.list(txnFolder)
+	    		.map(path -> txnFolder.resolve(path).toAbsolutePath())
 	    		.filter(path -> path.getFileName().toString().startsWith("."));
 	}
 
-	public Stream<String> streamAccessedResources() throws IOException {
+//	public Stream<String> streamAccessedResources() throws IOException {
+//		return streamAccessedEntries()
+//			.map(path -> path.getFileName().toString())
+//			.map(name -> name.substring(1)) // Remove leading '.'
+//			.map(StringUtils::urlDecode);
+//	}
+	
+	public Path getRelPathForJournalEntry(Path txnPath) {
+		try {
+			Path txnToRes = Files.readSymbolicLink(txnPath);
+			Path shadowAbsPath = txnPath.resolveSibling(txnToRes);
+			Path result = txnMgr.resRepo.getRootPath().relativize(shadowAbsPath);
+			return result;
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}		
+	}
+
+	public Stream<Path> streamAccessedResourcePaths() throws IOException {
 		return streamAccessedEntries()
-			.map(path -> path.getFileName().toString())
-			.map(name -> name.substring(1)) // Remove leading '.'
-			.map(StringUtils::urlDecode);
+			.map(this::getRelPathForJournalEntry);
 	}
 
 	
@@ -369,7 +387,7 @@ public class TxnImpl {
 //			resFilename = StringUtils.urlEncode(resourceName);
 
 			resShadowPath = txnMgr.resShadow.getRelPath(containerName);			
-			resFilename = StringUtils.urlEncode(containerName);
+			resFilename = resShadowPath.getFileName().toString(); // StringUtils.urlEncode(containerName);
 
 			journalEntryFile = txnFolder.resolve("." + resFilename);
 
@@ -420,9 +438,10 @@ public class TxnImpl {
 		}
 		
 		public void declareAccess() {
-			Path actualLinkTarget = txnFolder.relativize(resShadowAbsPath);
+			// Path actualLinkTarget = txnFolder.relativize(resShadowAbsPath);
+			Path actualLinkTarget = txnFolder.relativize(resFileAbsPath);
 			try {
-				if (Files.exists(journalEntryFile)) {
+				if (Files.exists(journalEntryFile, LinkOption.NOFOLLOW_LINKS)) {
 					// Verify
 					Path link = Files.readSymbolicLink(journalEntryFile);
 					if (!link.equals(actualLinkTarget)) {
@@ -528,8 +547,9 @@ public class TxnImpl {
 						// String readLockFileName = "txn-" + txnId + ".read.lock";
 						// Path readLockFile = resShadowPath.resolve(readLockFileName);
 						
-						// Use the read lock to link back to the txn that own it
-						Files.createSymbolicLink(readLockFile, txnFolder);					
+						// Use the read lock to link back to the txn that owns it
+				    	Files.createDirectories(readLockFile.getParent());
+						Files.createSymbolicLink(readLockFile, readLockFile.getParent().relativize(txnFolder));					
 					} else {
 						boolean existsReadLock;
 						try (Stream<Path> stream = getReadLocks()) {

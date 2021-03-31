@@ -139,13 +139,13 @@ public class DatasetGraphFromTxnMgr
 	public void commit() {
 		
 		try {
-			Iterator<String> it = local().streamAccessedResources().iterator();
+			Iterator<Path> it = local().streamAccessedResourcePaths().iterator();
 			while (it.hasNext()) {
-				String res = it.next();
-				logger.debug("Syncing: " + res);
-				Path relPath = txnMgr.getResRepo().getRelPath(res);
+				Path relPath = it.next();
+				logger.debug("Syncing: " + relPath);
+				// Path relPath = txnMgr.getResRepo().getRelPath(res);
 
-				ResourceApi api = local().getResourceApi(res);
+				ResourceApi api = local().getResourceApi(relPath);
 				if (api.ownsWriteLock()) {
 					// If we own a write lock and the state is dirty then sync
 					SyncedDataset synced = syncCache.getIfPresent(relPath);
@@ -212,9 +212,9 @@ public class DatasetGraphFromTxnMgr
 			}
 			
 			// TODO Stream the relPaths rather than the string resource names?
-			Iterator<String> it = local().streamAccessedResources().iterator();
+			Iterator<Path> it = local().streamAccessedResourcePaths().iterator();
 			while (it.hasNext()) {
-				String res = it.next();
+				Path res = it.next();
 				logger.debug("Finalizing and unlocking: " + res);
 				ResourceApi api = local().getResourceApi(res);
 			

@@ -11,7 +11,7 @@
 	</parent>
 
 	<artifactId>difs-core</artifactId>
-	<packaging>jar</packaging>
+<!-- 	<packaging>jar</packaging> -->
 
 	<dependencies>
 
