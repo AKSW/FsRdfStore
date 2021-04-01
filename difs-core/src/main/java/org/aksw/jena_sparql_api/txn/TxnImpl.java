@@ -257,9 +257,9 @@ public class TxnImpl {
 	public Path getRelPathForJournalEntry(Path txnPath) {
 		try {
 			Path txnToRes = Files.readSymbolicLink(txnPath);
-			Path shadowAbsPath = txnPath.resolveSibling(txnToRes);
-			Path result = txnMgr.resRepo.getRootPath().relativize(shadowAbsPath);
-			return result;
+			Path resAbsPath = txnPath.resolveSibling(txnToRes).normalize();
+			Path resRelPath = txnMgr.resRepo.getRootPath().relativize(resAbsPath);
+			return resRelPath;
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}		

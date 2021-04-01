@@ -150,18 +150,25 @@ public class DatasetGraphFromTxnMgr
 					ResourceApi api = local().getResourceApi(relPath);
 					if (api.ownsWriteLock()) {
 						// If we own a write lock and the state is dirty then sync
-						SyncedDataset synced = syncCache.getIfPresent(relPath);
+					    // If there are any in memory changes then write them out
+						SyncedDataset synced = syncCache.get(relPath);
 						if (synced != null) {
-							synced.save();
+							 synced.save();
 						}
-						
+
+						// Precommit: Copy any new data files to their final location (but keep backups)
 						FileSync fs = api.getFileSync();
-						if (synced.isDirty()) {
-							fs.preCommit();
+						fs.preCommit();
+						
+						// Update the in memory cache
+						if (synced != null) {
 							synced.updateState();
-	//						synced.getAdditions().clear();
-	//						synced.getDeletions().clear();
 						}
+//							if (synced.isDirty()) {
+		//						synced.getAdditions().clear();
+		//						synced.getDeletions().clear();
+//							}
+						
 						
 						// The indexers are now run immediately on insert
 	//					for (DatasetGraphIndexPlugin indexer : indexers) {
@@ -199,7 +206,7 @@ public class DatasetGraphFromTxnMgr
 	protected void applyJournal() {
 		boolean isCommit;
 		try {
-			isCommit = local().isCommit();
+			isCommit = local().isCommit() && !local().isRollback();
 		} catch (IOException e1) {
 			throw new RuntimeException(e1);
 		}
@@ -228,12 +235,14 @@ public class DatasetGraphFromTxnMgr
 					}
 					SyncedDataset synced = syncCache.getIfPresent(api.getResFilePath());
 					if (synced != null) {
-						if (isCommit) {
-							synced.getDiff().applyChanges();					
-						} else {
-							synced.getDiff().clearChanges();
+						if (synced.isDirty()) {
+							if (isCommit) {
+								synced.getDiff().applyChanges();					
+							} else {
+								synced.getDiff().clearChanges();
+							}
+							synced.updateState();
 						}
-						synced.updateState();
 					}
 					
 					api.unlock();

@@ -183,6 +183,7 @@ public class FileSync
 		
 		// Move new new content to the target
 		if (Files.exists(newContentFile)) {
+			// TODO Skip update if newContentFile and targetFile are the same (have the same timestamp)
 			moveAtomic(newContentFile, targetFile);
 		}
 	}

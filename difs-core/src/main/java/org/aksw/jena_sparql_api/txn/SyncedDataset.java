@@ -171,7 +171,7 @@ public class SyncedDataset {
 	
 	protected State state;
 	protected DatasetGraph originalState;
-	protected DatasetGraphDiff diff;
+	protected DatasetGraphDiff diff = null;
 
 	public SyncedDataset(FileSync fileSync) {
 		super();
@@ -290,8 +290,13 @@ public class SyncedDataset {
 		return diff;
 	}
 	
+	/**
+	 * Returns true if there are pending changes in memory; i.e. the set of added/removed triples is non-empty.
+	 * 
+	 * @return
+	 */
 	public boolean isDirty() {
-		boolean result = !(diff.getAdded().isEmpty() && diff.getRemoved().isEmpty());
+		boolean result = diff != null && !(diff.getAdded().isEmpty() && diff.getRemoved().isEmpty());
 		return result;
 	}
 	

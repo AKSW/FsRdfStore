@@ -30,13 +30,13 @@ public class MainPlayground {
 		if (true) {
 			Txn.executeWrite(d, () -> {
 				String file = "/home/raven/Datasets/databus/dataset-per-graph.sorted.trig";
-				// String file = "/home/raven/Projects/Eclipse/cord19-rdf/rdfize/data-1000.trig";
+//				 String file = "/home/raven/Projects/Eclipse/cord19-rdf/rdfize/data-1000.trig";
 				RDFDataMgr.read(dg, file);
 			});
 		}
 
-		dg.find(Node.ANY, Node.ANY, DCTerms.identifier.asNode(), NodeFactory.createLiteral("38a99f0e49b70f41d3774ed3127e06de01dc766f"))
-			.forEachRemaining(x -> System.out.println("Found: " + x));
+//		dg.find(Node.ANY, Node.ANY, DCTerms.identifier.asNode(), NodeFactory.createLiteral("38a99f0e49b70f41d3774ed3127e06de01dc766f"))
+//			.forEachRemaining(x -> System.out.println("Found: " + x));
 		
 //		Txn.executeWrite(d, () -> {
 //			d.asDatasetGraph().delete(RDF.Nodes.first, RDF.Nodes.first, RDF.Nodes.type, RDF.Nodes.Property);
