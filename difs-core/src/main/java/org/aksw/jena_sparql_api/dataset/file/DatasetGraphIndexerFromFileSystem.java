@@ -148,8 +148,8 @@ public class DatasetGraphIndexerFromFileSystem
             
             Quad deleteQuad = new Quad(g, s, p, o);
             
-            // Check whether any other quad in dg maps to the same idxRelPath - if so do not delete the symlink
-            long count = Streams.stream(dg.find())
+            // Check whether any other quad in the same graph wrt. dg maps to the same idxRelPath - if so do not delete the symlink
+            long count = Streams.stream(dg.find(g, Node.ANY, p, Node.ANY))
             	.filter(q -> !q.equals(deleteQuad))
             	.filter(q -> {
             		Path otherRelPath = objectToPath.apply(q.getObject());
@@ -203,6 +203,16 @@ public class DatasetGraphIndexerFromFileSystem
         return result;
     }
 
+    
+    /**
+     * The resulting stream must be closed in order to avoid 'too many open files' errors!
+     * 
+     * @param sourceFolder
+     * @param prefix
+     * @param suffix
+     * @return
+     * @throws IOException
+     */
     public static Stream<Entry<Path, Path>> readSymbolicLinks(Path sourceFolder, String prefix, String suffix) throws IOException {
         return Files.list(sourceFolder)
                 .filter(Files::isSymbolicLink)

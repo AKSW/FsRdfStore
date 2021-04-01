@@ -68,10 +68,11 @@ public class DatasetGraphFromTxnMgr
 	
 	protected LoadingCache<Path, SyncedDataset> syncCache = CacheBuilder
 			.newBuilder()
-			.maximumSize(10000)
+			.maximumSize(10)
 			.removalListener(ev -> {
-				// TODO Sync here or elsewhere?
-				// getValue();
+				logger.debug("Cache eviction of dataset graph for " + ev.getKey());
+				SyncedDataset sd = (SyncedDataset)ev.getValue();
+				sd.save();
 			})
 			.build(new CacheLoader<Path, SyncedDataset>() {
 				@Override
@@ -139,46 +140,47 @@ public class DatasetGraphFromTxnMgr
 	public void commit() {
 		
 		try {
-			Iterator<Path> it = local().streamAccessedResourcePaths().iterator();
-			while (it.hasNext()) {
-				Path relPath = it.next();
-				logger.debug("Syncing: " + relPath);
-				// Path relPath = txnMgr.getResRepo().getRelPath(res);
-
-				ResourceApi api = local().getResourceApi(relPath);
-				if (api.ownsWriteLock()) {
-					// If we own a write lock and the state is dirty then sync
-					SyncedDataset synced = syncCache.getIfPresent(relPath);
-					if (synced != null) {
-						synced.save();
+			try (Stream<Path> stream = local().streamAccessedResourcePaths()) {
+				Iterator<Path> it = stream.iterator();
+				while (it.hasNext()) {
+					Path relPath = it.next();
+					logger.debug("Syncing: " + relPath);
+					// Path relPath = txnMgr.getResRepo().getRelPath(res);
+	
+					ResourceApi api = local().getResourceApi(relPath);
+					if (api.ownsWriteLock()) {
+						// If we own a write lock and the state is dirty then sync
+						SyncedDataset synced = syncCache.getIfPresent(relPath);
+						if (synced != null) {
+							synced.save();
+						}
+						
+						FileSync fs = api.getFileSync();
+						if (synced.isDirty()) {
+							fs.preCommit();
+							synced.updateState();
+	//						synced.getAdditions().clear();
+	//						synced.getDeletions().clear();
+						}
+						
+						// The indexers are now run immediately on insert
+	//					for (DatasetGraphIndexPlugin indexer : indexers) {
+	//						for (Quad quad : SetFromDatasetGraph.wrap(synced.getDeletions())) {
+	//							indexer.delete(quad.getGraph(), quad.getSubject(), quad.getPredicate(), quad.getObject());
+	//						}
+	//						
+	//						for (Quad quad : SetFromDatasetGraph.wrap(synced.getAdditions())) {
+	//							indexer.add(quad.getGraph(), quad.getSubject(), quad.getPredicate(), quad.getObject());
+	//						}
+	//					}
 					}
-					
-					FileSync fs = api.getFileSync();
-					if (synced.isDirty()) {
-						fs.preCommit();
-						synced.updateState();
-//						synced.getAdditions().clear();
-//						synced.getDeletions().clear();
-					}
-					
-					// The indexers are now run immediately on insert
-//					for (DatasetGraphIndexPlugin indexer : indexers) {
-//						for (Quad quad : SetFromDatasetGraph.wrap(synced.getDeletions())) {
-//							indexer.delete(quad.getGraph(), quad.getSubject(), quad.getPredicate(), quad.getObject());
-//						}
-//						
-//						for (Quad quad : SetFromDatasetGraph.wrap(synced.getAdditions())) {
-//							indexer.add(quad.getGraph(), quad.getSubject(), quad.getPredicate(), quad.getObject());
-//						}
-//					}
 				}
-			}
-
-			// Once all modified graphs are written out
-			// add the statement that the commit action can now be run
-			local().addCommit();
-
-			applyJournal();
+			}	
+				// Once all modified graphs are written out
+				// add the statement that the commit action can now be run
+				local().addCommit();
+	
+				applyJournal();
 		} catch (Exception e) {
 			try {
 				local().addRollback();
@@ -212,31 +214,33 @@ public class DatasetGraphFromTxnMgr
 			}
 			
 			// TODO Stream the relPaths rather than the string resource names?
-			Iterator<Path> it = local().streamAccessedResourcePaths().iterator();
-			while (it.hasNext()) {
-				Path res = it.next();
-				logger.debug("Finalizing and unlocking: " + res);
-				ResourceApi api = local().getResourceApi(res);
-			
-				if (isCommit) {
-					api.finalizeCommit();
-				} else {
-					api.rollback();
-				}
-				SyncedDataset synced = syncCache.getIfPresent(api.getResFilePath());
-				if (synced != null) {
-					if (isCommit) {
-						synced.getDiff().applyChanges();					
-					} else {
-						synced.getDiff().clearChanges();
-					}
-					synced.updateState();
-				}
+			try (Stream<Path> stream = local().streamAccessedResourcePaths()) {
+				Iterator<Path> it = stream.iterator();
+				while (it.hasNext()) {
+					Path res = it.next();
+					logger.debug("Finalizing and unlocking: " + res);
+					ResourceApi api = local().getResourceApi(res);
 				
-				api.unlock();
-				api.undeclareAccess();
+					if (isCommit) {
+						api.finalizeCommit();
+					} else {
+						api.rollback();
+					}
+					SyncedDataset synced = syncCache.getIfPresent(api.getResFilePath());
+					if (synced != null) {
+						if (isCommit) {
+							synced.getDiff().applyChanges();					
+						} else {
+							synced.getDiff().clearChanges();
+						}
+						synced.updateState();
+					}
+					
+					api.unlock();
+					api.undeclareAccess();
+				}
 			}
-
+			
 			local().cleanUpTxn();
 		} catch (Exception e) {
 			throw new RuntimeException(e);
@@ -310,12 +314,14 @@ public class DatasetGraphFromTxnMgr
 	@Override
 	public Iterator<Node> listGraphNodes() {
 		Iterator<Node> result = access(this, () -> {
-			return local().listVisibleFiles()
-				.map(this::mapToDatasetGraph)
-				.collect(Collectors.toList()).stream() // FIXME only collect if not in a txn
-	        	.flatMap(dataset -> {
-	        		return Streams.stream(dataset.listGraphNodes());
-	        	}).iterator();
+			try (Stream<ResourceApi> stream = local().listVisibleFiles()) {
+				return stream
+					.map(this::mapToDatasetGraph)
+					.collect(Collectors.toList()).stream() // FIXME only collect if not in a txn
+		        	.flatMap(dataset -> {
+		        		return Streams.stream(dataset.listGraphNodes());
+		        	}).iterator();
+			}
 		});
 		
 		return result;
@@ -568,14 +574,23 @@ public class DatasetGraphFromTxnMgr
 		return visibleMatchingResources;
     }
 
+	public Stream<Quad> findInAnyNamedGraphsCore(Node s, Node p, Node o) {
+		// findResources(s, p, o)
+		return findResources(s, p, o)
+			.map(this::mapToDatasetGraph)
+				.collect(Collectors.toList()).stream() // FIXME only collect if not in a txn
+			.flatMap(dg -> Streams.stream(dg.find(Node.ANY, s, p, o)));
+	}
+
     
 
 	public Iterator<Quad> findInAnyNamedGraphs(Node s, Node p, Node o) {
-		// findResources(s, p, o)
-		return access(this, () -> findResources(s, p, o)
-			.map(this::mapToDatasetGraph)
-				.collect(Collectors.toList()).stream() // FIXME only collect if not in a txn
-			.flatMap(dg -> Streams.stream(dg.find(Node.ANY, s, p, o)))).iterator();
+		// TODO Link the stream to the txn so at latest upon ending the txn the resource can be freed
+		return access(this, () -> {
+			try (Stream<Quad> stream = findInAnyNamedGraphsCore(s, p, o)) {
+				return stream.collect(Collectors.toList()).iterator();
+			}
+		});
 	}
 
 	@Override

@@ -229,7 +229,10 @@ public class TxnImpl {
 	
 
 	
-	/** Stream the resources to which access has been declared */
+	/**
+	 * Stream the resources to which access has been declared
+	 * The returned stream must be closed!
+	 */
 	public Stream<Path> streamAccessedEntries() throws IOException {
 //        PathMatcher pathMatcher = txnFolder.getFileSystem().getPathMatcher("glob:**/.*");
 //        		
