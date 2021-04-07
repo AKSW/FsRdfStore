@@ -77,12 +77,24 @@
 
 	<dependencyManagement>
 		<dependencies>
+			<!-- WebDAV connector -->
+			<dependency>
+				<groupId>no.maddin.niofs</groupId>
+				<artifactId>nio-fs-webdav</artifactId>
+				<version>2.0.1</version>
+			</dependency>
+
 			<dependency>
 				<groupId>org.aksw.difs</groupId>
 				<artifactId>difs-core</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 
+			<dependency>
+				<groupId>org.aksw.difs</groupId>
+				<artifactId>difs-system</artifactId>
+				<version>${project.version}</version>
+			</dependency>
 
 			<dependency>
 				<groupId>log4j</groupId>
@@ -156,12 +168,17 @@
 				<groupId>org.aksw.jena-sparql-api</groupId>
 				<artifactId>jena-sparql-api-resources</artifactId>
 				<version>${jena-sparql-api.version}</version>
-				<scope>test</scope>
 			</dependency>
 
 			<dependency>
 				<groupId>org.aksw.jena-sparql-api</groupId>
 				<artifactId>jena-sparql-api-mapper-annotations</artifactId>
+				<version>${jena-sparql-api.version}</version>
+			</dependency>
+
+			<dependency>
+				<groupId>org.aksw.jena-sparql-api</groupId>
+				<artifactId>jena-sparql-api-mapper-core</artifactId>
 				<version>${jena-sparql-api.version}</version>
 			</dependency>
 

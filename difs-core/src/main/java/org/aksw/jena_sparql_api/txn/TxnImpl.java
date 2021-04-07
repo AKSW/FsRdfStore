@@ -19,7 +19,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.aksw.commons.util.strings.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,8 +42,7 @@ public class TxnImpl {
 //	protected transient Path finalizeCommitFile;
 	protected transient Path commitFile;
 	protected transient Path finalizeFile;
-	protected transient Path rollbackFile;
-	
+	protected transient Path rollbackFile;	
 	
 	protected LoadingCache<Path, ResourceApi> containerCache = CacheBuilder.newBuilder()
 			.maximumSize(1000)
@@ -256,7 +254,7 @@ public class TxnImpl {
 	
 	public Path getRelPathForJournalEntry(Path txnPath) {
 		try {
-			Path txnToRes = Files.readSymbolicLink(txnPath);
+			Path txnToRes = txnMgr.symlinkStrategy.readSymbolicLink(txnPath);
 			Path resAbsPath = txnPath.resolveSibling(txnToRes).normalize();
 			Path resRelPath = txnMgr.resRepo.getRootPath().relativize(resAbsPath);
 			return resRelPath;
@@ -446,14 +444,14 @@ public class TxnImpl {
 			try {
 				if (Files.exists(journalEntryFile, LinkOption.NOFOLLOW_LINKS)) {
 					// Verify
-					Path link = Files.readSymbolicLink(journalEntryFile);
+					Path link = txnMgr.symlinkStrategy.readSymbolicLink(journalEntryFile);
 					if (!link.equals(actualLinkTarget)) {
 						throw new RuntimeException(String.format("Validation failed: Attempted to declare access to %s but a different %s already existed ", actualLinkTarget, link));
 					}
 					
 				} else {
 					logger.debug("Declaring access from " + journalEntryFile + " to " + actualLinkTarget);
-					Files.createSymbolicLink(journalEntryFile, actualLinkTarget);
+					txnMgr.symlinkStrategy.createSymbolicLink(journalEntryFile, actualLinkTarget);
 				}
 			} catch (IOException e) {
 				throw new RuntimeException(e);
@@ -472,7 +470,7 @@ public class TxnImpl {
 		public boolean ownsWriteLock() {
 			boolean result;
 			try {
-				Path txnLink = Files.readSymbolicLink(writeLockFile);
+				Path txnLink = txnMgr.symlinkStrategy.readSymbolicLink(writeLockFile);
 				Path txnAbsLink = writeLockFile.getParent().resolve(txnLink).toAbsolutePath().normalize();
 				
 				result = txnAbsLink.equals(txnFolder);
@@ -487,7 +485,7 @@ public class TxnImpl {
 		public boolean ownsReadLock() {
 			boolean result;
 			try {
-				Path txnLink = Files.readSymbolicLink(readLockFile);
+				Path txnLink = txnMgr.symlinkStrategy.readSymbolicLink(readLockFile);
 				Path txnAbsLink = readLockFile.getParent().resolve(txnLink).toAbsolutePath().normalize();
 				
 				result = txnAbsLink.equals(txnFolder);
@@ -552,7 +550,7 @@ public class TxnImpl {
 						
 						// Use the read lock to link back to the txn that owns it
 				    	Files.createDirectories(readLockFile.getParent());
-						Files.createSymbolicLink(readLockFile, readLockFile.getParent().relativize(txnFolder));					
+				    	txnMgr.symlinkStrategy.createSymbolicLink(readLockFile, readLockFile.getParent().relativize(txnFolder));					
 					} else {
 						boolean existsReadLock;
 						try (Stream<Path> stream = getReadLocks()) {
@@ -564,7 +562,7 @@ public class TxnImpl {
 					    } else {
 					    	// Create a write lock file that links to the txn folder
 					    	Files.createDirectories(writeLockFile.getParent());
-							Files.createSymbolicLink(writeLockFile, writeLockFile.getParent().relativize(txnFolder));
+					    	txnMgr.symlinkStrategy.createSymbolicLink(writeLockFile, writeLockFile.getParent().relativize(txnFolder));
 					    	// Files.createFile(resourceShadowPath.resolve("write.lock"), null);
 					    }
 					}

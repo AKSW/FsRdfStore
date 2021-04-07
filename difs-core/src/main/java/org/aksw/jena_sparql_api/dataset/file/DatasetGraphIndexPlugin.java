@@ -20,7 +20,7 @@ public interface DatasetGraphIndexPlugin {
      * @return
      */
     // public Iterator<Node> listGraphNodes(Node s, Node p, Node o);
-    public Stream<Path> listGraphNodes(Node s, Node p, Node o);
+    public Stream<Path> listGraphNodes(DatasetGraph dg, Node s, Node p, Node o);
 
     public void add(DatasetGraph dg, Node g, Node s, Node p, Node o);
     public void delete(DatasetGraph dg, Node g, Node s, Node p, Node o);

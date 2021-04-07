@@ -3,21 +3,41 @@ package org.aksw.difs.example.main;
 import java.io.IOException;
 import java.nio.file.Paths;
 
+import org.aksw.common.io.util.symlink.SymlinkStrategies;
+import org.aksw.difs.builder.DifsFactory;
+import org.aksw.difs.index.impl.RdfIndexerFactoryLexicalForm;
+import org.aksw.difs.index.impl.RdfTermIndexerFactoryIriToFolder;
+import org.aksw.difs.system.domain.StoreDefinition;
 import org.aksw.jena_sparql_api.dataset.file.DatasetGraphIndexerFromFileSystem;
-import org.aksw.jena_sparql_api.difs.main.DifsFactory;
-import org.apache.jena.graph.Node;
 import org.apache.jena.graph.NodeFactory;
 import org.apache.jena.query.Dataset;
 import org.apache.jena.query.DatasetFactory;
+import org.apache.jena.rdf.model.ModelFactory;
 import org.apache.jena.riot.RDFDataMgr;
+import org.apache.jena.riot.RDFFormat;
 import org.apache.jena.sparql.core.DatasetGraph;
 import org.apache.jena.system.Txn;
 import org.apache.jena.vocabulary.DCAT;
 import org.apache.jena.vocabulary.DCTerms;
 
 public class MainPlayground {
+		
+	public static void main2(String[] args) throws IOException {
+		StoreDefinition sd = ModelFactory.createDefaultModel().createResource().as(StoreDefinition.class);
+		
+		sd.setStorePath("store");
+		sd.setIndexPath("index");
+		sd.addIndex("http://dataid.dbpedia.org/ns/core#group", "group", RdfTermIndexerFactoryIriToFolder.class);
+		sd.addIndex("http://purl.org/dc/terms/hasVersion", "version", RdfIndexerFactoryLexicalForm.class);
+		sd.addIndex(DCAT.downloadURL.asNode(), "downloadUrl", RdfTermIndexerFactoryIriToFolder.class);
+		sd.addIndex(DCTerms.identifier.asNode(), "identifier", RdfIndexerFactoryLexicalForm.class);
+		
+		RDFDataMgr.write(System.out, sd.getModel(), RDFFormat.TURTLE_PRETTY);
+	}
+	
 	public static void main(String[] args) throws IOException {
 		DatasetGraph dg = DifsFactory.newInstance()
+				.setSymlinkStrategy(SymlinkStrategies.FILE)
 				.setPath(Paths.get("/tmp/gitalog"))
 				.addIndex(NodeFactory.createURI("http://dataid.dbpedia.org/ns/core#group"), "group", DatasetGraphIndexerFromFileSystem::uriNodeToPath)
 				.addIndex(NodeFactory.createURI("http://purl.org/dc/terms/hasVersion"), "version", DatasetGraphIndexerFromFileSystem::iriOrLexicalFormToToPath)
@@ -27,7 +47,7 @@ public class MainPlayground {
 				.connect();
 		Dataset d = DatasetFactory.wrap(dg);
 
-		if (true) {
+		if (false) {
 			Txn.executeWrite(d, () -> {
 				String file = "/home/raven/Datasets/databus/dataset-per-graph.sorted.trig";
 //				 String file = "/home/raven/Projects/Eclipse/cord19-rdf/rdfize/data-1000.trig";

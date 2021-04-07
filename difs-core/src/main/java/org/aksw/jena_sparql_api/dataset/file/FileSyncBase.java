@@ -12,6 +12,7 @@ import java.util.function.Supplier;
 import org.aksw.jena_sparql_api.concurrent.util.Synchronized;
 import org.aksw.jena_sparql_api.io.common.Reference;
 import org.aksw.jena_sparql_api.io.common.ReferenceImpl;
+import org.aksw.jena_sparql_api.lock.FileLockUtils;
 import org.apache.jena.dboe.base.file.ProcessFileLock;
 import org.apache.jena.query.ReadWrite;
 import org.apache.jena.query.TxnType;

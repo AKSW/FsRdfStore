@@ -1,4 +1,4 @@
-package org.aksw.jena_sparql_api.dataset.file;
+package org.aksw.jena_sparql_api.lock;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;

@@ -66,9 +66,10 @@ public class DatasetGraphFromTxnMgr
 //    }
 
 	
+    // TODO Make cache configurable; ctor must accept a cache builder
 	protected LoadingCache<Path, SyncedDataset> syncCache = CacheBuilder
 			.newBuilder()
-			.maximumSize(10)
+			.maximumSize(1000)
 			.removalListener(ev -> {
 				logger.debug("Cache eviction of dataset graph for " + ev.getKey());
 				SyncedDataset sd = (SyncedDataset)ev.getValue();
@@ -97,6 +98,10 @@ public class DatasetGraphFromTxnMgr
 		super();
 		this.txnMgr = txnMgr;
 		this.indexers = indexers;
+	}
+
+	public TxnMgr getTxnMgr() {
+		return txnMgr;
 	}
 
 	@Override
@@ -575,7 +580,7 @@ public class DatasetGraphFromTxnMgr
         		plugin -> plugin.evaluateFind(s, p, o), (lhs, rhs) -> lhs != null && lhs < rhs);
 
 		Stream<ResourceApi> visibleMatchingResources = bestPlugin != null
-				? bestPlugin.listGraphNodes(s, p, o)
+				? bestPlugin.listGraphNodes(this, s, p, o)
 		            .map(relPath -> local().getResourceApi(relPath))
 		            .filter(ResourceApi::isVisible)
 		        : local().listVisibleFiles();

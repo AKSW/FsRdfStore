@@ -14,10 +14,26 @@
 	<packaging>jar</packaging>
 
 	<dependencies>
+		<!-- <dependency> -->
+		<!-- <groupId>org.aksw.jena-sparql-api</groupId> -->
+		<!-- <artifactId>jena-sparql-api-mapper-annotations</artifactId> -->
+		<!-- </dependency> -->
+
 		<dependency>
 			<groupId>org.aksw.jena-sparql-api</groupId>
-			<artifactId>jena-sparql-api-mapper-annotations</artifactId>
+			<artifactId>jena-sparql-api-mapper-core</artifactId>
 		</dependency>
+
+		<dependency>
+			<groupId>no.maddin.niofs</groupId>
+			<artifactId>nio-fs-webdav</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.aksw.difs</groupId>
+			<artifactId>difs-core</artifactId>
+		</dependency>
+
 	</dependencies>
 </project>
 

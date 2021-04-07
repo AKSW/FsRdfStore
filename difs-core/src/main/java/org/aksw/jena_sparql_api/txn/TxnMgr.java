@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Random;
 
+import org.aksw.common.io.util.symlink.SymlinkStrategy;
 import org.aksw.jena_sparql_api.lock.LockManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,18 +53,28 @@ public class TxnMgr {
 	protected ResourceRepository<String> resRepo;
 	protected ResourceRepository<String> resShadow;
 	
+	protected SymlinkStrategy symlinkStrategy;
+
 	public TxnMgr(
 			LockManager<Path> lockMgr,
 			Path txnBasePath,
 			ResourceRepository<String> resRepo,
-			ResourceRepository<String> resShadow) {
+			ResourceRepository<String> resShadow,
+			SymlinkStrategy symlinkStrategy) {
 		super();
 		this.lockMgr = lockMgr;
 		this.txnBasePath = txnBasePath;
 		this.resRepo = resRepo;
 		this.resShadow = resShadow;
+		this.symlinkStrategy = symlinkStrategy;
 	}
 	
+	public SymlinkStrategy getSymlinkStrategy() {
+		return symlinkStrategy;
+	}
+
+
+
 	public ResourceRepository<String> getResRepo() {
 		return resRepo;
 	}
