@@ -1,28 +1,21 @@
 package org.aksw.jena_sparql_api.dataset.file;
 
-import java.nio.file.Paths;
-
-import org.apache.jena.dboe.base.file.Location;
-import org.apache.jena.query.Dataset;
-import org.apache.jena.system.Txn;
-import org.apache.jena.tdb2.TDB2Factory;
-import org.apache.jena.vocabulary.RDF;
 import org.junit.Test;
 
 public class DatasetGraphFromFileSystemTests {
 	
 	@Test
 	public void test() {
-		Dataset ds1 = TDB2Factory.connectDataset(Location.create(Paths.get("/tmp/tdb2test")));
-		Dataset ds2 = TDB2Factory.connectDataset(Location.create(Paths.get("/tmp/tdb2test")));
-		
-		Txn.executeWrite(ds1, () -> ds1.asDatasetGraph().add(RDF.Nodes.type, RDF.Nodes.type, RDF.Nodes.type, RDF.Nodes.Property));
-		
-		System.out.println("yay");
-		
-		ds1.close();
-		ds2.close();
-		
+//		Dataset ds1 = TDB2Factory.connectDataset(Location.create(Paths.get("/tmp/tdb2test")));
+//		Dataset ds2 = TDB2Factory.connectDataset(Location.create(Paths.get("/tmp/tdb2test")));
+//		
+//		Txn.executeWrite(ds1, () -> ds1.asDatasetGraph().add(RDF.Nodes.type, RDF.Nodes.type, RDF.Nodes.type, RDF.Nodes.Property));
+//		
+//		System.out.println("yay");
+//		
+//		ds1.close();
+//		ds2.close();
+//		
 		
 //		ProcessFileLock plock = ProcessFileLock.create("/tmp/test");
 //		plock.get
