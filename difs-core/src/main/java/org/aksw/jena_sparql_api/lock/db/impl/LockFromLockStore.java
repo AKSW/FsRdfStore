@@ -48,6 +48,7 @@ public class LockFromLockStore
 			LockFromLink readLock,
 			LockFromLink writeLock) {
 		super();
+		this.resourceLock = resourceLock;
 		this.ownerKey = ownerKey;
 		this.mgmtLock = mgmtLock;
 		this.readLock = readLock;
@@ -66,13 +67,13 @@ public class LockFromLockStore
 
 	@Override
 	public boolean ownsReadLock() {
-		boolean result = readLock.isOwned();
+		boolean result = readLock.isOwnedHere();
 		return result;
 	}
 
 	@Override
 	public boolean ownsWriteLock() {
-		boolean result = writeLock.isOwned();
+		boolean result = writeLock.isOwnedHere();
 		return result;
 	}
 
@@ -108,8 +109,9 @@ public class LockFromLockStore
 		boolean result;
 		
 		// Path writeLockPath = resShadowAbsPath.resolve("write.lock");
-		if (writeLock.isOwned()) {
-			throw new RuntimeException("Write lock already exists at " + writeLock.getPath());
+		String writeLockOwnerKey = writeLock.readOwnerKey();
+		if (writeLockOwnerKey != null && !ownerKey.equals(writeLockOwnerKey)) {
+			throw new RuntimeException("Lock for " + ownerKey + " failed because write lock at " + writeLock.getPath() + " owned by " + writeLockOwnerKey);
 		}				
 		
 		if (!write) { // read lock requested

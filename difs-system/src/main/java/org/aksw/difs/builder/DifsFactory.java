@@ -182,11 +182,11 @@ public class DifsFactory {
 		LockManager<Path> lockMgr = new LockManagerCompound<>(Arrays.asList(processLockMgr, threadLockMgr));
 		
 		ResourceRepository<String> resStore = ResourceRepoImpl.createWithUriToPath(repoRootPath.resolve("store"));
-		ResourceRepository<String> resShadow = ResourceRepoImpl.createWithUrlEncode(repoRootPath.resolve("shadow"));
+		ResourceRepository<String> resLocks = ResourceRepoImpl.createWithUrlEncode(repoRootPath.resolve("locks"));
 
 		SymbolicLinkStrategy effSymlinkStrategy = symbolicLinkStrategy != null ? symbolicLinkStrategy : new SymbolicLinkStrategyStandard(); 
 
-		TxnMgr txnMgr = new TxnMgr(lockMgr, txnStore, resStore, resShadow, effSymlinkStrategy);
+		TxnMgr txnMgr = new TxnMgr(lockMgr, txnStore, resStore, resLocks, effSymlinkStrategy);
 		
 		return new DatasetGraphFromTxnMgr(txnMgr, indexers);
 		// TODO Read configuration file if it exists

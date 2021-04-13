@@ -2,7 +2,13 @@ package org.aksw.jena_sparql_api.lock;
 
 import java.util.concurrent.Callable;
 
+import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class RetryUtils {
+	private static final Logger logger = LoggerFactory.getLogger(RetryUtils.class);
+	
 	public static <T> T simpleRetry(
 			long retryCount,
 			long delayInMs,
@@ -14,6 +20,7 @@ public class RetryUtils {
 			try {
 				result = action.call();
 			} catch (Exception e) {
+				logger.warn("Retry failed: " + ExceptionUtils.getRootCauseMessage(e));
 				if (retryAttempt + 1 == retryCount) {
 					throw new RuntimeException(e);
 				} else {

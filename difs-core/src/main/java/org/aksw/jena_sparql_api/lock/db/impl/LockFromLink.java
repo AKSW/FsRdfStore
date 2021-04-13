@@ -1,8 +1,8 @@
 package org.aksw.jena_sparql_api.lock.db.impl;
 
-import java.io.FileNotFoundException;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.function.Function;
 
@@ -63,7 +63,7 @@ public class LockFromLink
 					result[0] = true;
 				} catch (FileAlreadyExistsException e) {
 					String currentOwnerKey = readOwnerKey();
-					
+
 					if (ownerKey.equals(currentOwnerKey)) {
 						result[0] = true;
 						// Nothing todo; we already own the lock
@@ -106,7 +106,7 @@ public class LockFromLink
 		try {
 			Path target = linkStrategy.readSymbolicLink(path);
 			result = targetToOwnerKey.apply(target);
-		} catch (FileNotFoundException e) {
+		} catch (NoSuchFileException e) {
 			result = null;
 		} catch (Exception e) {
 			throw new RuntimeException(e);
@@ -114,10 +114,16 @@ public class LockFromLink
 		return result;
 	}
 	
-	public boolean isOwned() {
+	public boolean isOwnedHere() {
 		String currentOwnerKey = readOwnerKey();
 		boolean result = ownerKey.equals(currentOwnerKey);
 		return result;
 	}
-	
+
+//	public boolean isOwnedElsewhere() {
+//		String currentOwnerKey = readOwnerKey();
+//		boolean result = currentOwnerKey != null && !ownerKey.equals(currentOwnerKey);
+//		return result;
+//	}
+
 }

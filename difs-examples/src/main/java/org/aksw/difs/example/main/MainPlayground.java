@@ -24,7 +24,7 @@ import org.apache.jena.vocabulary.RDF;
 
 public class MainPlayground {
 		
-	public static void main(String[] args) throws IOException {
+	public static void main3(String[] args) throws IOException {
 		DatasetGraph dg = DifsFactory.newInstance()
 				.setSymbolicLinkStrategy(SymbolicLinkStrategies.FILE)
 				.loadFromRdf("/home/raven/Datasets/gitalog/store.conf.ttl")
@@ -49,7 +49,7 @@ public class MainPlayground {
 		RDFDataMgr.write(System.out, sd.getModel(), RDFFormat.TURTLE_PRETTY);
 	}
 	
-	public static void main2(String[] args) throws IOException {
+	public static void main(String[] args) throws IOException {
 		DatasetGraph dg = DifsFactory.newInstance()
 				.setSymbolicLinkStrategy(SymbolicLinkStrategies.FILE)
 				.setPath(Paths.get("/tmp/gitalog"))

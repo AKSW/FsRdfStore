@@ -6,7 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
 import java.util.Arrays;
-import java.util.Collections;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -45,7 +45,8 @@ public class LockStoreImpl
 	/** Root folder of the lock db */
 	protected ResourceRepository<String> lockRepo;
 
-	protected ResourceRepository<String> ownerRepo;
+	/** The owner of locks are usually transactions */
+	protected Function<String, Path> ownerRepoFactory;
 
 	/** 
 	 * Mapping of resources to store folders which enables creation of lock files that are
@@ -54,12 +55,16 @@ public class LockStoreImpl
 	protected ResourceRepository<String> storeRepo;
 	
 
-	public LockStoreImpl(SymbolicLinkStrategy symbolicLinkStrategy, ResourceRepository<String> lockRepo,
-			ResourceRepository<String> storeRepo) {
+	public LockStoreImpl(
+			SymbolicLinkStrategy symbolicLinkStrategy,
+			ResourceRepository<String> lockRepo,
+			ResourceRepository<String> storeRepo,
+			Function<String, Path> ownerRepoFactory) {
 		super();
 		this.symbolicLinkStrategy = symbolicLinkStrategy;
 		this.lockRepo = lockRepo;
 		this.storeRepo = storeRepo;
+		this.ownerRepoFactory = ownerRepoFactory;
 	}
 
 	
@@ -113,6 +118,7 @@ public class LockStoreImpl
 			lockAbsPath = PathUtils.resolve(lockRepo.getRootPath(), lockKey);			
 			//mgmtLock = new LockFromFile(lockAbsPath.resolve(mgmtLockFilename));
 			mgmtLockPath = lockAbsPath.resolve(mgmtLockFilename);
+			writeLockPath = lockAbsPath.resolve(writeLockFilename);
 		}
 		
 		@Override
@@ -146,11 +152,16 @@ public class LockStoreImpl
 		    		: Stream.empty();
 		}
 
+		public String linkTargetToKey(Path path) {
+			String result = path.getFileName().toString();
+			return result;
+		}
+		
 		public String getOwnerKey(Path linkFile) {
 			String result;
 			try {
 				Path target = symbolicLinkStrategy.readSymbolicLink(linkFile);
-				result = target.getFileName().toString();
+				result = linkTargetToKey(target);
 			} catch (FileNotFoundException e) {
 				result = null;
 			} catch (IOException e) {
@@ -178,30 +189,32 @@ public class LockStoreImpl
 			String readLockFileName = ownerKey + ".read.lock";
 
 			Path readLockPath = lockAbsPath.resolve(readLockFileName);
+			
 			LockFromLink readLock = new LockFromLink(
 					symbolicLinkStrategy,
 					readLockPath,
 					ownerKey,
-					key -> PathUtils.resolve(ownerRepo.getRootPath(), Collections.singletonList(key)),
+					ownerRepoFactory,
 					// ownerPath -> ownerPath.getFileName().toString()
-					ResourceLockImpl.this::getOwnerKey);
+					ResourceLockImpl.this::linkTargetToKey);
 
 			LockFromLink writeLock = new LockFromLink(
 					symbolicLinkStrategy,
 					writeLockPath,
 					ownerKey,
-					key -> PathUtils.resolve(ownerRepo.getRootPath(), Collections.singletonList(key)),
+					// ownerRepo.getRootPath(), Collections.singletonList(key)
+					ownerRepoFactory,
 					// ownerPath -> ownerPath.getFileName().toString()
-					ResourceLockImpl.this::getOwnerKey
+					ResourceLockImpl.this::linkTargetToKey
 					);
 
 			LockFromLink mgmtLock = new LockFromLink(
 					symbolicLinkStrategy,
 					lockAbsPath.resolve(mgmtLockFilename),
 					ownerKey,
-					key -> PathUtils.resolve(ownerRepo.getRootPath(), Collections.singletonList(key)),
+					ownerRepoFactory,
 					// ownerPath -> ownerPath.getFileName().toString()
-					ResourceLockImpl.this::getOwnerKey
+					ResourceLockImpl.this::linkTargetToKey
 					);
 			
 			return new LockFromLockStore(this, ownerKey, mgmtLock, readLock, writeLock);

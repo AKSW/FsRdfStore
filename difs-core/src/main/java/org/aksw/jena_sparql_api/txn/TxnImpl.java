@@ -2,6 +2,7 @@ package org.aksw.jena_sparql_api.txn;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -15,11 +16,13 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.aksw.commons.io.util.FileUtils;
 import org.aksw.commons.io.util.PathUtils;
 import org.aksw.jena_sparql_api.difs.main.IsolationLevel;
 import org.aksw.jena_sparql_api.lock.db.api.LockOwner;
 import org.aksw.jena_sparql_api.lock.db.api.LockStore;
 import org.aksw.jena_sparql_api.lock.db.api.ResourceLock;
+import org.aksw.jena_sparql_api.lock.db.impl.LockStoreImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,7 +50,7 @@ public class TxnImpl {
 	
 	protected IsolationLevel isolationLevel;
 	
-	protected LockStore<List<String>, List<String>> lockStore;
+//	protected LockStore<String[], String> lockStore;
 	
 	protected LoadingCache<String[], ResourceTxnApi> containerCache = CacheBuilder.newBuilder()
 			.maximumSize(1000)
@@ -59,7 +62,10 @@ public class TxnImpl {
 			});
 			
 	
-	public TxnImpl(TxnMgr txnMgr, String txnId, Path txnFolder) {
+	public TxnImpl(
+			TxnMgr txnMgr,
+			String txnId,
+			Path txnFolder) {
 		super();
 		this.txnMgr = txnMgr;
 		this.txnId = txnId;
@@ -70,6 +76,10 @@ public class TxnImpl {
 		this.commitFile = txnFolder.resolve(commitFilename);
 		this.finalizeFile = txnFolder.resolve(finalizeFilename);
 		this.rollbackFile = txnFolder.resolve(rollbackFilename);
+		
+		
+//		lockStore = new LockStoreImpl(txnMgr.symlinkStrategy, txnMgr.lockRepo, txnMgr.resRepo);
+
 	}
 	
 	
@@ -347,16 +357,24 @@ public class TxnImpl {
 		public ResourceTxnApi(String[] resKey) {// Path resFilePath) {
 			// this.resFilePath = resFilePath;
 			//resFilePath = txnMgr.resRepo.getRelPath(resourceName);
+			
+			String resKeyStr = PathUtils.join(resKey);
+			resourceLock = txnMgr.lockStore.getLockForResource(resKeyStr);
+			txnResourceLock = resourceLock.get(txnId);
+			
 			resFileAbsPath = PathUtils.resolve(txnMgr.resRepo.getRootPath(), resKey);
 
-			String containerName = PathUtils.join(resKey);
+			
+			String[] resLockKey = txnMgr.lockRepo.getPathSegments(resKeyStr);
+			String resLockKeyStr = PathUtils.join(resLockKey);
+			
 			
 //			resShadowPath = txnMgr.resShadow.getRelPath(resourceName);			
 //			resFilename = StringUtils.urlEncode(resourceName);
 
-			journalEntryFile = txnFolder.resolve("." + containerName);
+			journalEntryFile = txnFolder.resolve("." + resLockKeyStr);
 
-			String readLockFileName = "txn-" + txnId + "read.lock";
+			// String readLockFileName = "txn-" + txnId + "read.lock";
 			
 			// TODO HACK - the data.trig should not probably come from elsewhere
 			fileSync = FileSync.create(resFileAbsPath.resolve("data.trig"));
@@ -423,7 +441,14 @@ public class TxnImpl {
 					
 				} else {
 					logger.debug("Declaring access from " + journalEntryFile + " to " + actualLinkTarget);
-					txnMgr.symlinkStrategy.createSymbolicLink(journalEntryFile, actualLinkTarget);
+					FileUtilsX.ensureParentFolderExists(journalEntryFile, f -> {
+						try {
+							txnMgr.symlinkStrategy.createSymbolicLink(journalEntryFile, actualLinkTarget);
+						} catch (FileAlreadyExistsException e) {
+							// Ignore
+							// TODO Verify whether the existing symlink matches the one we wanted to write?
+						}
+					});
 				}
 			} catch (IOException e) {
 				throw new RuntimeException(e);

@@ -4,10 +4,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Random;
-import java.util.stream.Stream;
 
 import org.aksw.common.io.util.symlink.SymbolicLinkStrategy;
 import org.aksw.jena_sparql_api.lock.LockManager;
+import org.aksw.jena_sparql_api.lock.db.api.LockStore;
+import org.aksw.jena_sparql_api.lock.db.impl.LockStoreImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,7 +53,10 @@ public class TxnMgr {
 	protected LockManager<Path> lockMgr;
 	protected Path txnBasePath;
 	protected ResourceRepository<String> resRepo;
-	protected ResourceRepository<String> resShadow;
+	protected ResourceRepository<String> lockRepo;
+	
+	protected LockStore<String[], String> lockStore;
+
 	
 	protected SymbolicLinkStrategy symlinkStrategy;
 
@@ -60,14 +64,16 @@ public class TxnMgr {
 			LockManager<Path> lockMgr,
 			Path txnBasePath,
 			ResourceRepository<String> resRepo,
-			ResourceRepository<String> resShadow,
+			ResourceRepository<String> lockRepo,
 			SymbolicLinkStrategy symlinkStrategy) {
 		super();
 		this.lockMgr = lockMgr;
 		this.txnBasePath = txnBasePath;
 		this.resRepo = resRepo;
-		this.resShadow = resShadow;
+		this.lockRepo = lockRepo;
 		this.symlinkStrategy = symlinkStrategy;
+		
+		lockStore = new LockStoreImpl(symlinkStrategy, lockRepo, resRepo, txnId -> txnBasePath.resolve(txnId));
 	}
 	
 	/**
