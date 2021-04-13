@@ -5,6 +5,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.stream.Stream;
 
 import org.aksw.jena_sparql_api.lock.LockBaseRepeat;
+import org.aksw.jena_sparql_api.lock.LockUtils;
 import org.aksw.jena_sparql_api.lock.db.api.LockOwner;
 import org.aksw.jena_sparql_api.lock.db.api.ResourceLock;
 
@@ -104,7 +105,12 @@ public class LockFromLockStore
 
 	}
 	
+	
 	protected boolean lock(boolean write) {
+		return LockUtils.runWithLock(this::getMgmtLock, () -> lockCore(write));
+	}
+	
+	protected boolean lockCore(boolean write) {
 
 		boolean result;
 		
@@ -132,6 +138,19 @@ public class LockFromLockStore
 		}
 		return result;
 	}
+	
+	protected void unlock(boolean write) {
+		LockUtils.runWithLock(this::getMgmtLock, () -> { unlockCore(write); return null; });
+	}
+	
+	protected void unlockCore(boolean write) {
+		if (write) {
+			writeLock.unlock();
+		} else {
+			readLock.unlock();
+		}
+	}
+
 
 	public void unlock() {
 		readLock().unlock();
@@ -163,7 +182,7 @@ public class LockFromLockStore
 
 		@Override
 		public void unlock() {
-			readLock.unlock();
+			LockFromLockStore.this.unlock(write);
 		}
 	}
 }

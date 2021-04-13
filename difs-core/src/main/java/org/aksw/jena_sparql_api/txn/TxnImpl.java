@@ -16,13 +16,10 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.aksw.commons.io.util.FileUtils;
 import org.aksw.commons.io.util.PathUtils;
 import org.aksw.jena_sparql_api.difs.main.IsolationLevel;
 import org.aksw.jena_sparql_api.lock.db.api.LockOwner;
-import org.aksw.jena_sparql_api.lock.db.api.LockStore;
 import org.aksw.jena_sparql_api.lock.db.api.ResourceLock;
-import org.aksw.jena_sparql_api.lock.db.impl.LockStoreImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -355,6 +352,7 @@ public class TxnImpl {
 		//		public ResourceApi(String resourceName) {
 			//this.resourceName = resourceName;
 		public ResourceTxnApi(String[] resKey) {// Path resFilePath) {
+			this.resKey = resKey;
 			// this.resFilePath = resFilePath;
 			//resFilePath = txnMgr.resRepo.getRelPath(resourceName);
 			
@@ -392,9 +390,9 @@ public class TxnImpl {
 			return resKey;
 		}
 		
-		public Path getResFilePath() {
-			return resFilePath;
-		};
+//		public Path getResFilePath() {
+//			return resFilePath;
+//		};
 		
 
 		public boolean isVisible() {

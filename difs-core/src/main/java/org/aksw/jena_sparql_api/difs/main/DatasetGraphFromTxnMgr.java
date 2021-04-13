@@ -69,18 +69,19 @@ public class DatasetGraphFromTxnMgr
 
 	
     // TODO Make cache configurable; ctor must accept a cache builder
-	protected LoadingCache<String[], SyncedDataset> syncCache;	
+	protected LoadingCache<Array<String>, SyncedDataset> syncCache;	
 	
-	public static LoadingCache<String[], SyncedDataset> createCache(TxnMgr txnMgr, CacheBuilder<String[], SyncedDataset> cacheBuilder) {
-		LoadingCache<String[], SyncedDataset> result = cacheBuilder
+	public static LoadingCache<Array<String>, SyncedDataset> createCache(TxnMgr txnMgr, CacheBuilder<Array<String>, SyncedDataset> cacheBuilder) {
+		LoadingCache<Array<String>, SyncedDataset> result = cacheBuilder
 			.removalListener(ev -> {
 				logger.debug("Cache eviction of dataset graph for " + ev.getKey());
 				SyncedDataset sd = (SyncedDataset)ev.getValue();
 				sd.save();
 			})
-			.build(new CacheLoader<String[], SyncedDataset>() {
+			.build(new CacheLoader<Array<String>, SyncedDataset>() {
 				@Override
-				public SyncedDataset load(String[] key) throws Exception {
+				public SyncedDataset load(Array<String> keyArr) throws Exception {
+					String[] key = keyArr.getArray();
 					ResourceRepository<String> resRepo = txnMgr.getResRepo();
 					Path rootPath = resRepo.getRootPath();
 	
@@ -115,7 +116,7 @@ public class DatasetGraphFromTxnMgr
 		super();
 		this.txnMgr = txnMgr;
 		this.indexers = indexers;
-		this.syncCache = createCache(txnMgr, (CacheBuilder<String[], SyncedDataset>)cacheBuilder);
+		this.syncCache = createCache(txnMgr, (CacheBuilder<Array<String>, SyncedDataset>)cacheBuilder);
 	}
 
 	public TxnMgr getTxnMgr() {
@@ -174,7 +175,7 @@ public class DatasetGraphFromTxnMgr
 					if (api.getTxnResourceLock().ownsWriteLock()) {
 						// If we own a write lock and the state is dirty then sync
 					    // If there are any in memory changes then write them out
-						SyncedDataset synced = syncCache.get(relPath);
+						SyncedDataset synced = syncCache.get(Array.wrap(relPath));
 						if (synced != null) {
 							 synced.save();
 						}
@@ -256,7 +257,7 @@ public class DatasetGraphFromTxnMgr
 					} else {
 						api.rollback();
 					}
-					SyncedDataset synced = syncCache.getIfPresent(api.getResFilePath());
+					SyncedDataset synced = syncCache.getIfPresent(api.getResourceKey());
 					if (synced != null) {
 						if (synced.isDirty()) {
 							if (isCommit) {
@@ -336,7 +337,7 @@ public class DatasetGraphFromTxnMgr
 		String[] resourceKey = api.getResourceKey();
 		SyncedDataset entry;
 		try {
-			entry = syncCache.get(resourceKey);
+			entry = syncCache.get(Array.wrap(resourceKey));
 		} catch (ExecutionException e) {
 			throw new RuntimeException(e);
 		}
@@ -454,7 +455,7 @@ public class DatasetGraphFromTxnMgr
 			
 			SyncedDataset synced;
 			try {
-				synced = syncCache.get(key);
+				synced = syncCache.get(Array.wrap(key));
 			} catch (ExecutionException e) {
 				throw new RuntimeException(e);
 			}

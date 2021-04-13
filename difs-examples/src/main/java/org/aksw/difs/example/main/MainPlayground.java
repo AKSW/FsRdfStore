@@ -50,6 +50,13 @@ public class MainPlayground {
 	}
 	
 	public static void main(String[] args) throws IOException {
+//		String[] a = new String[] {"a", "b"};
+//		String[] b = new String[] {"a", "b"};
+//
+//		System.out.println(a.equals(b)); // false
+//		System.out.println(Arrays.asList(a).equals(Arrays.asList(b))); // true
+//		System.out.println(Array.wrap(a).equals(Array.wrap(b))); // true
+		
 		DatasetGraph dg = DifsFactory.newInstance()
 				.setSymbolicLinkStrategy(SymbolicLinkStrategies.FILE)
 				.setPath(Paths.get("/tmp/gitalog"))
