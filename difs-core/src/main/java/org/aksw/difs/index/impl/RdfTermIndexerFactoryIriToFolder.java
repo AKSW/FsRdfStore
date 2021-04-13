@@ -1,6 +1,5 @@
 package org.aksw.difs.index.impl;
 
-import java.nio.file.Path;
 import java.util.function.Function;
 
 import org.aksw.difs.index.api.RdfTermIndexerFactory;
@@ -11,7 +10,7 @@ public class RdfTermIndexerFactoryIriToFolder
 	implements RdfTermIndexerFactory
 {
 	@Override
-	public Function<Node, Path> getMapper() {
+	public Function<Node, String[]> getMapper() {
 		return DatasetGraphIndexerFromFileSystem::uriNodeToPath;
 	}
 }

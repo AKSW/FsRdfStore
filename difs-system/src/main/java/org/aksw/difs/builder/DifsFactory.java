@@ -137,7 +137,7 @@ public class DifsFactory {
 		return repoRootPath;
 	}
 	
-	public DifsFactory addIndex(Node predicate, String name, Function<Node, Path> objectToPath) throws IOException {
+	public DifsFactory addIndex(Node predicate, String name, Function<Node, String[]> objectToPath) throws IOException {
 //        raw, DCTerms.identifier.asNode(),
 //        path = Paths.get("/tmp/graphtest/index/by-id"),
 //        DatasetGraphIndexerFromFileSystem::mavenStringToToPath

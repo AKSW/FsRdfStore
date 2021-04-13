@@ -66,22 +66,22 @@ public class DatasetGraphIndexerFromFileSystem
         this.objectToPath = objectToPath;
     }
 
-    public static Path uriNodeToPath(Node node) {
-        Path result = node.isURI()
-                ? UriToPathUtils.resolvePath(node.getURI())
+    public static String[] uriNodeToPath(Node node) {
+        String[] result = node.isURI()
+                ? UriToPathUtils.toPathSegments(node.getURI())
                 : null;
 
         return result;
     }
 
 
-    public static Path iriOrLexicalFormToToPath(Node node) {
-    	Path result = node.isLiteral()
-    			? Paths.get(StringUtils.urlEncode(node.getLiteralLexicalForm()))
+    public static String[] iriOrLexicalFormToToPath(Node node) {
+    	String[] result = node.isLiteral()
+    			? new String[] {StringUtils.urlEncode(node.getLiteralLexicalForm())}
     			: node.isURI()
-    				? UriToPathUtils.resolvePath(node.getURI())
+    				? UriToPathUtils.toPathSegments(node.getURI())
     				: node.isBlank()
-    					? Paths.get(node.getBlankNodeLabel())
+    					? PathUtils.splitBySlash(node.getBlankNodeLabel())
     					: null;
     	return result;
     }
