@@ -4,8 +4,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Random;
+import java.util.stream.Stream;
 
-import org.aksw.common.io.util.symlink.SymlinkStrategy;
+import org.aksw.common.io.util.symlink.SymbolicLinkStrategy;
 import org.aksw.jena_sparql_api.lock.LockManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,14 +54,14 @@ public class TxnMgr {
 	protected ResourceRepository<String> resRepo;
 	protected ResourceRepository<String> resShadow;
 	
-	protected SymlinkStrategy symlinkStrategy;
+	protected SymbolicLinkStrategy symlinkStrategy;
 
 	public TxnMgr(
 			LockManager<Path> lockMgr,
 			Path txnBasePath,
 			ResourceRepository<String> resRepo,
 			ResourceRepository<String> resShadow,
-			SymlinkStrategy symlinkStrategy) {
+			SymbolicLinkStrategy symlinkStrategy) {
 		super();
 		this.lockMgr = lockMgr;
 		this.txnBasePath = txnBasePath;
@@ -69,7 +70,17 @@ public class TxnMgr {
 		this.symlinkStrategy = symlinkStrategy;
 	}
 	
-	public SymlinkStrategy getSymlinkStrategy() {
+	/**
+	 * Build a bipartite graph between dependencies and locks; i.e.
+	 * 
+	 * Read the locks of the given transactions
+	 */
+	public void buildLockGraph() {
+		
+	}
+	
+	
+	public SymbolicLinkStrategy getSymlinkStrategy() {
 		return symlinkStrategy;
 	}
 

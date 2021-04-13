@@ -24,10 +24,10 @@
 			<artifactId>jena-sparql-api-mapper-core</artifactId>
 		</dependency>
 
-		<dependency>
-			<groupId>no.maddin.niofs</groupId>
-			<artifactId>nio-fs-webdav</artifactId>
-		</dependency>
+<!-- 		<dependency> -->
+<!-- 			<groupId>no.maddin.niofs</groupId> -->
+<!-- 			<artifactId>nio-fs-webdav</artifactId> -->
+<!-- 		</dependency> -->
 
 		<dependency>
 			<groupId>org.aksw.difs</groupId>

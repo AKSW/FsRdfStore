@@ -1,7 +1,6 @@
 package org.aksw.jena_sparql_api.difs.main;
 
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.function.Function;
 
 import org.aksw.commons.io.util.UriToPathUtils;
@@ -12,9 +11,9 @@ public class ResourceRepoImpl
 	implements ResourceRepository<String>
 {
 	protected Path rootPath;
-	protected Function<String, Path> resToPath;
+	protected Function<String, String[]> resToPath;
 	
-	public ResourceRepoImpl(Path rootPath, Function<String, Path> resToRelPath) {
+	public ResourceRepoImpl(Path rootPath, Function<String, String[]> resToRelPath) {
 		super();
 		this.rootPath = rootPath;
 		this.resToPath = resToRelPath;
@@ -26,13 +25,13 @@ public class ResourceRepoImpl
 	}
 
 	@Override
-	public Path getRelPath(String name) {
-		Path result = resToPath.apply(name);
+	public String[] getPathSegments(String name) {
+		String[] result = resToPath.apply(name);
 		return result;
 	}
 
 	public static ResourceRepository<String> createWithUriToPath(Path rootPath) {
-		return new ResourceRepoImpl(rootPath, UriToPathUtils::resolvePath);
+		return new ResourceRepoImpl(rootPath, UriToPathUtils::toPathSegments);
 	}
 
 	/** Create file names by means of urlencoding and prepending a dot ('.') */
@@ -40,13 +39,13 @@ public class ResourceRepoImpl
 		return new ResourceRepoImpl(rootPath, ResourceRepoImpl::stringToPath);
 	}
 	
-	public static Path stringToPath(String name) {
+	public static String[] stringToPath(String name) {
 		String str = StringUtils.urlEncode(name);
 		if (str.length() > 64) {
 			str = StringUtils.md5Hash(str);
 		}
 		
-		Path r = Paths.get(str);
-		return r;
+		// Path r = Paths.get(str);
+		return new String[] {str};
 	}
 }

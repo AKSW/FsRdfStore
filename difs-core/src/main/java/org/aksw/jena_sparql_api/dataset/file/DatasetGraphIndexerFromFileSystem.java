@@ -11,7 +11,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.aksw.common.io.util.symlink.SymlinkStrategy;
+import org.aksw.common.io.util.symlink.SymbolicLinkStrategy;
+import org.aksw.commons.io.util.PathUtils;
 import org.aksw.commons.io.util.SymLinkUtils;
 import org.aksw.commons.io.util.UriToPathUtils;
 import org.aksw.commons.util.strings.StringUtils;
@@ -27,12 +28,12 @@ import com.google.common.collect.Streams;
 public class DatasetGraphIndexerFromFileSystem
     implements DatasetGraphIndexPlugin
 {
-	protected SymlinkStrategy symlinkStrategy;
+	protected SymbolicLinkStrategy symlinkStrategy;
 
     protected Path basePath;
 //    protected Path propertyFolder;
     protected Node propertyNode;
-    protected Function<? super Node, Path> objectToPath;
+    protected Function<? super Node, String[]> objectToPath;
     protected Function<String, Path> uriToPath;
     
     /** The file the index point to - TODO this should be obtained from some store object */
@@ -52,11 +53,11 @@ public class DatasetGraphIndexerFromFileSystem
 //    }
     
     public DatasetGraphIndexerFromFileSystem(
-    		SymlinkStrategy symlinkStrategy,
+    		SymbolicLinkStrategy symlinkStrategy,
     		ResourceRepository<String> syncedGraph,
             Node propertyNode,
             Path basePath,
-            Function<Node, Path> objectToPath) {
+            Function<Node, String[]> objectToPath) {
         super();
         this.symlinkStrategy = symlinkStrategy;
         this.basePath = basePath;
@@ -105,8 +106,8 @@ public class DatasetGraphIndexerFromFileSystem
     }
 
 
-    public static String pathToFilename(Path relPath) {
-    	String result = relPath.toString().replace("/", ".");
+    public static String pathToFilename(String[] relPath) {
+    	String result = PathUtils.join(relPath).replace("/", ".");
     	if (result.length() > 64) {
     		result = StringUtils.md5Hash(result);
     	}
@@ -120,21 +121,21 @@ public class DatasetGraphIndexerFromFileSystem
 //        Node p = quad.getPredicate();
 //        Node o = quad.getObject();
         if (evaluateFind(s, p, o) != null) {
-            Path idxRelPath = objectToPath.apply(o);
+            String[] idxRelPath = objectToPath.apply(o);
 
 
 //            Path idxRelPath = UriToPathUtils.resolvePath(oRelPath);
-            Path idxFullPath = basePath.resolve(idxRelPath);
+            Path idxFullPath = PathUtils.resolve(basePath, idxRelPath);
 
             String tgtIri = g.getURI();
             Path tgtBasePath = syncedGraph.getRootPath();
-            Path tgtRelPath = syncedGraph.getRelPath(tgtIri);
+            String[] tgtRelPath = syncedGraph.getPathSegments(tgtIri);
 
             String coreName = pathToFilename(tgtRelPath);
             
             // String tgtFileName = syncedGraph.getFilename();
             // String tgtFileName = filename;
-            Path symLinkTgtAbsFile = tgtBasePath.resolve(tgtRelPath).resolve(tgtFilename);
+            Path symLinkTgtAbsFile = PathUtils.resolve(tgtBasePath, tgtRelPath).resolve(tgtFilename);
 //            Path symLinkTgtRelFile = idxFullPath.relativize(symLinkTgtAbsFile);
 
             Path file = Paths.get(tgtFilename);
@@ -170,7 +171,7 @@ public class DatasetGraphIndexerFromFileSystem
         if (evaluateFind(s, p, o) != null) {
 //            String idxIri = o.getURI();
 //            Path idxRelPath = UriToPathUtils.resolvePath(idxIri);
-            Path idxRelPath = objectToPath.apply(o);
+            String[] idxRelPath = objectToPath.apply(o);
             
             Quad deleteQuad = new Quad(g, s, p, o);
             
@@ -178,14 +179,14 @@ public class DatasetGraphIndexerFromFileSystem
             long count = Streams.stream(dg.find(g, Node.ANY, p, Node.ANY))
             	.filter(q -> !q.equals(deleteQuad))
             	.filter(q -> {
-            		Path otherRelPath = objectToPath.apply(q.getObject());
+            		String[] otherRelPath = objectToPath.apply(q.getObject());
             		return otherRelPath.equals(idxRelPath);
             	})
             	.count();
             
             if (count == 0) {
 	            
-	            Path idxFullPath = basePath.resolve(idxRelPath);
+	            Path idxFullPath = PathUtils.resolve(basePath, idxRelPath);
 	
 	// Should we sanity check that the symlink refers to the exact same target
 	// as it would if we created it from the quad?
@@ -194,7 +195,7 @@ public class DatasetGraphIndexerFromFileSystem
 	//            String tgtFileName = syncedGraph.getFilename();
 	            String tgtIri = g.getURI();
 	            Path tgtBasePath = syncedGraph.getRootPath();
-	            Path tgtRelPath = syncedGraph.getRelPath(tgtIri);
+	            String[] tgtRelPath = syncedGraph.getPathSegments(tgtIri);
 
 	            String coreName = pathToFilename(tgtRelPath);
 
@@ -252,7 +253,7 @@ public class DatasetGraphIndexerFromFileSystem
      * @return
      * @throws IOException
      */
-    public static Stream<Entry<Path, Path>> readSymbolicLinks(SymlinkStrategy symlinkStrategy, Path sourceFolder, String prefix, String suffix) throws IOException {
+    public static Stream<Entry<Path, Path>> readSymbolicLinks(SymbolicLinkStrategy symlinkStrategy, Path sourceFolder, String prefix, String suffix) throws IOException {
         return Files.list(sourceFolder)
                 .filter(symlinkStrategy::isSymbolicLink)
                 .filter(path -> {
@@ -275,7 +276,7 @@ public class DatasetGraphIndexerFromFileSystem
                 });
     }
     
-    public Stream<Path> listGraphNodes(DatasetGraph dg, Node s, Node p, Node o) {
+    public Stream<String[]> listGraphNodes(DatasetGraph dg, Node s, Node p, Node o) {
 //    	SymlinkStrategy symlinkStrategy = extractSymlinkStrategy(dg);
     	
         if (evaluateFind(s, p, o) == null) {
@@ -284,7 +285,7 @@ public class DatasetGraphIndexerFromFileSystem
 
 //        String iri = o.getURI();
 //        Path relPath = UriToPathUtils.resolvePath(iri);
-        Path relPath = objectToPath.apply(o);
+        String[] relPath = objectToPath.apply(o);
         //Path relPath = syncedGraph.getRelPathForIri(tgtIri);
 //        String fileName = syncedGraph.getFilename();
 
@@ -300,7 +301,7 @@ public class DatasetGraphIndexerFromFileSystem
 //        Path symLinkTgtFile = relPath.resolve(fileName);
 
 
-        Path symLinkSrcPath = basePath.resolve(relPath);
+        Path symLinkSrcPath = PathUtils.resolve(basePath, relPath);
         Stream<Entry<Path, Path>> symLinkTgtPaths;
         try {
             symLinkTgtPaths = Files.exists(symLinkSrcPath)
@@ -308,14 +309,15 @@ public class DatasetGraphIndexerFromFileSystem
                     : Stream.empty();
             
             
-            Stream<Path> result = symLinkTgtPaths.map(srcToTgt -> {
+            Stream<String[]> result = symLinkTgtPaths.map(srcToTgt -> {
                 Path absTgt = SymLinkUtils.resolveSymLinkAbsolute(srcToTgt.getKey(), srcToTgt.getValue());
                 Path tgtRelFile = syncedGraph.getRootPath().relativize(absTgt);
 
                 // Get the path (without the filename)
-                Path tgtRelPath = tgtRelFile.getParent(); 
+                Path tgtRelPath = tgtRelFile.getParent();
                 return tgtRelPath;
-            });
+            })
+            .map(PathUtils::getPathSegments);
             
             return result;
         } catch (Exception e) {

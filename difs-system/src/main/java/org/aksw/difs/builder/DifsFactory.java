@@ -14,8 +14,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.aksw.common.io.util.symlink.SymlinkStrategy;
-import org.aksw.common.io.util.symlink.SymlinkStrategyStandard;
+import org.aksw.common.io.util.symlink.SymbolicLinkStrategy;
+import org.aksw.common.io.util.symlink.SymbolicLinkStrategyStandard;
 import org.aksw.difs.index.api.RdfTermIndexerFactory;
 import org.aksw.difs.sys.vocab.jena.DIFS;
 import org.aksw.difs.system.domain.IndexDefinition;
@@ -50,18 +50,22 @@ import com.google.common.collect.Streams;
 public class DifsFactory {
 	private static final Logger logger = LoggerFactory.getLogger(DifsFactory.class);
 
-	protected SymlinkStrategy symlinkStrategy;
+	protected SymbolicLinkStrategy symbolicLinkStrategy;
 
 	protected Path repoRootPath;	
 	protected Path storeRelPath;
 	protected Path indexRelPath;
 	protected Collection<DatasetGraphIndexPlugin> indexers;
 
+	public DifsFactory() {
+		this.indexers = new LinkedHashSet<>();
+	}
 	
 	public static DifsFactory newInstance() {
-		return new DifsFactory();
+		DifsFactory result = new DifsFactory();
+		return result;
 	}
-
+	
 	public static Stream<Resource> listResources(Model model, Collection<Property> properties) {
 		return properties.stream()
 			.flatMap(p ->
@@ -69,6 +73,11 @@ public class DifsFactory {
 	}
 	
 	public DifsFactory loadFromRdf(String filenameOrIri) {
+		// TODO Handle local files vs urls 
+		Path confFilePath = Paths.get(filenameOrIri);
+		repoRootPath = confFilePath.getParent().toAbsolutePath();
+		
+		
 		Model model = RDFDataMgr.loadModel(filenameOrIri);
 		List<Property> mainProperties = Arrays.asList(DIFS.storePath, DIFS.indexPath, DIFS.index);
 
@@ -121,22 +130,26 @@ public class DifsFactory {
 		
 	public DifsFactory setPath(Path repoRootPath) {
 		this.repoRootPath = repoRootPath;
-		this.indexers = new LinkedHashSet<>();
 		return this;
+	}
+	
+	public Path getRepoRootPath() {
+		return repoRootPath;
 	}
 	
 	public DifsFactory addIndex(Node predicate, String name, Function<Node, Path> objectToPath) throws IOException {
 //        raw, DCTerms.identifier.asNode(),
 //        path = Paths.get("/tmp/graphtest/index/by-id"),
 //        DatasetGraphIndexerFromFileSystem::mavenStringToToPath
+				
 		Path indexFolder = repoRootPath.resolve("index").resolve(name);
 		Files.createDirectories(indexFolder);
 		
 		ResourceRepository<String> resStore = ResourceRepoImpl.createWithUriToPath(repoRootPath.resolve("store"));
 
-		Objects.requireNonNull(symlinkStrategy);
+		Objects.requireNonNull(symbolicLinkStrategy);
 		indexers.add(new DatasetGraphIndexerFromFileSystem(
-				symlinkStrategy,
+				symbolicLinkStrategy,
 				resStore,
 				predicate,
 				indexFolder,
@@ -147,12 +160,12 @@ public class DifsFactory {
 	
 	
 	
-	public SymlinkStrategy getSymlinkStrategy() {
-		return symlinkStrategy;
+	public SymbolicLinkStrategy getSymbolicLinkStrategy() {
+		return symbolicLinkStrategy;
 	}
 
-	public DifsFactory setSymlinkStrategy(SymlinkStrategy symlinkStrategy) {
-		this.symlinkStrategy = symlinkStrategy;
+	public DifsFactory setSymbolicLinkStrategy(SymbolicLinkStrategy symlinkStrategy) {
+		this.symbolicLinkStrategy = symlinkStrategy;
 		return this;
 	}
 
@@ -171,7 +184,7 @@ public class DifsFactory {
 		ResourceRepository<String> resStore = ResourceRepoImpl.createWithUriToPath(repoRootPath.resolve("store"));
 		ResourceRepository<String> resShadow = ResourceRepoImpl.createWithUrlEncode(repoRootPath.resolve("shadow"));
 
-		SymlinkStrategy effSymlinkStrategy = symlinkStrategy != null ? symlinkStrategy : new SymlinkStrategyStandard(); 
+		SymbolicLinkStrategy effSymlinkStrategy = symbolicLinkStrategy != null ? symbolicLinkStrategy : new SymbolicLinkStrategyStandard(); 
 
 		TxnMgr txnMgr = new TxnMgr(lockMgr, txnStore, resStore, resShadow, effSymlinkStrategy);
 		

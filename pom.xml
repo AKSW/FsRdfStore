@@ -78,11 +78,11 @@
 	<dependencyManagement>
 		<dependencies>
 			<!-- WebDAV connector -->
-			<dependency>
-				<groupId>no.maddin.niofs</groupId>
-				<artifactId>nio-fs-webdav</artifactId>
-				<version>2.0.1</version>
-			</dependency>
+<!-- 			<dependency> -->
+<!-- 				<groupId>no.maddin.niofs</groupId> -->
+<!-- 				<artifactId>nio-fs-webdav</artifactId> -->
+<!-- 				<version>2.0.2-SNAPSHOT</version> -->
+<!-- 			</dependency> -->
 
 			<dependency>
 				<groupId>org.aksw.difs</groupId>

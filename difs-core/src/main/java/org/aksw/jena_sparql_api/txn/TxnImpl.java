@@ -4,21 +4,22 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
-import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 import java.time.Instant;
 import java.util.List;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.locks.Lock;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.aksw.commons.io.util.PathUtils;
+import org.aksw.jena_sparql_api.difs.main.IsolationLevel;
+import org.aksw.jena_sparql_api.lock.db.api.LockOwner;
+import org.aksw.jena_sparql_api.lock.db.api.LockStore;
+import org.aksw.jena_sparql_api.lock.db.api.ResourceLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,12 +45,16 @@ public class TxnImpl {
 	protected transient Path finalizeFile;
 	protected transient Path rollbackFile;	
 	
-	protected LoadingCache<Path, ResourceApi> containerCache = CacheBuilder.newBuilder()
+	protected IsolationLevel isolationLevel;
+	
+	protected LockStore<List<String>, List<String>> lockStore;
+	
+	protected LoadingCache<String[], ResourceTxnApi> containerCache = CacheBuilder.newBuilder()
 			.maximumSize(1000)
-			.build(new CacheLoader<Path, ResourceApi>() {
+			.build(new CacheLoader<String[], ResourceTxnApi>() {
 				@Override
-				public ResourceApi load(Path key) throws Exception {
-					return new ResourceApi(key);
+				public ResourceTxnApi load(String[] key) throws Exception {
+					return new ResourceTxnApi(key);
 				}		
 			});
 			
@@ -66,23 +71,24 @@ public class TxnImpl {
 		this.finalizeFile = txnFolder.resolve(finalizeFilename);
 		this.rollbackFile = txnFolder.resolve(rollbackFilename);
 	}
-
 	
-	public Stream<ResourceApi> listVisibleFiles() {
+	
+	public Stream<ResourceTxnApi> listVisibleFiles() {
         
 		// TODO This pure listing of file resources should probably go to the repository
 		PathMatcher pathMatcher = txnMgr.getResRepo().getRootPath().getFileSystem().getPathMatcher("glob:**/*.trig");
 
-	    List<ResourceApi> result;
+	    List<ResourceTxnApi> result;
 	    try (Stream<Path> tmp = Files.walk(txnMgr.getResRepo().getRootPath())) {
 	    	// TODO Filter out graphs that were created after the transaction start
 	        result = tmp
 		            .filter(pathMatcher::matches)
 		            // We are interested in the folder - not the file itself: Get the parent
-		            .map(path -> path.getParent())
+		            .map(Path::getParent)
 		            .map(path -> txnMgr.resRepo.getRootPath().relativize(path))
-		            .map(relPath -> getResourceApi(relPath))
-		            .filter(ResourceApi::isVisible)
+		            .map(PathUtils::getPathSegments)
+		            .map(this::getResourceApi)
+		            .filter(ResourceTxnApi::isVisible)
 	        		.collect(Collectors.toList());
 	    } catch (IOException e1) {
 	    	throw new RuntimeException(e1);
@@ -103,14 +109,14 @@ public class TxnImpl {
 		}
 	}
 	
-	public ResourceApi getResourceApi(String resourceName) {
-		Path relRelPath = txnMgr.getResRepo().getRelPath(resourceName);
-		ResourceApi result = getResourceApi(relRelPath);
+	public ResourceTxnApi getResourceApi(String resourceName) {
+		String[] relRelPath = txnMgr.getResRepo().getPathSegments(resourceName);
+		ResourceTxnApi result = getResourceApi(relRelPath);
 		return result;
 	}
 
-	public ResourceApi getResourceApi(Path resRelPath) {
-		ResourceApi result;
+	public ResourceTxnApi getResourceApi(String[] resRelPath) {
+		ResourceTxnApi result;
 		try {
 			result = containerCache.get(resRelPath);
 		} catch (ExecutionException e) {
@@ -198,7 +204,7 @@ public class TxnImpl {
 			}
 		}
 	}
-	
+		
 	public void addCommit() throws IOException {
 		Files.createFile(commitFile);		
 	}
@@ -252,62 +258,21 @@ public class TxnImpl {
 //			.map(StringUtils::urlDecode);
 //	}
 	
-	public Path getRelPathForJournalEntry(Path txnPath) {
+	public String[] getRelPathForJournalEntry(Path txnPath) {
 		try {
 			Path txnToRes = txnMgr.symlinkStrategy.readSymbolicLink(txnPath);
 			Path resAbsPath = txnPath.resolveSibling(txnToRes).normalize();
 			Path resRelPath = txnMgr.resRepo.getRootPath().relativize(resAbsPath);
-			return resRelPath;
+			String[] result = PathUtils.getPathSegments(resRelPath);
+			return result;
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}		
 	}
 
-	public Stream<Path> streamAccessedResourcePaths() throws IOException {
+	public Stream<String[]> streamAccessedResourcePaths() throws IOException {
 		return streamAccessedEntries()
 			.map(this::getRelPathForJournalEntry);
-	}
-
-	
-	public static <T> T repeatWithLock(
-			int retryCount,
-			int delayInMs,
-			Supplier<? extends Lock> lockSupplier,
-			Callable<T> action) {
-		
-		T result = null;
-		int retryAttempt ;
-		for (retryAttempt = 0; retryAttempt < retryCount; ++retryAttempt) {
-			try {
-				result = runWithLock(lockSupplier, action);
-				break;
-			} catch (Exception e) {
-				if (retryAttempt + 1 == retryCount) {
-					throw new RuntimeException(e);
-				} else {
-					try {
-						Thread.sleep(delayInMs);
-					} catch (Exception e2) {
-						throw new RuntimeException(e2);
-					}
-				}
-			}
-		}
-		return result;
-	}
-	
-	public static <T> T runWithLock(Supplier<? extends Lock> lockSupplier, Callable<T> action) {
-		T result = null;
-		Lock lock = lockSupplier.get();
-		try {
-			lock.lock();
-			result = action.call();
-		} catch (Exception e) {
-			throw new RuntimeException(e);
-		} finally {
-			lock.unlock();
-		}
-		return result;
 	}
 
 	
@@ -352,64 +317,61 @@ public class TxnImpl {
 	*/
 
 
-	
-	public class ResourceApi
+	/**
+	 * Api to a resource w.r.t. a transaction.
+	 * 
+	 * 
+	 * @author raven
+	 *
+	 */
+	public class ResourceTxnApi
 		implements TxnComponent
 	{
-//		protected String resourceName;
-		protected String resFilename;
+		protected String[] resKey;
+		// protected String resFilename;
 		
 		protected Path resFilePath;
 		protected Path resFileAbsPath;
-		protected Path resShadowPath;
 
 		// Declare an access attempt to the resource in the txn's journal
 		protected Path journalEntryFile;
 
-		protected Path resShadowBasePath;
-		protected Path resShadowAbsPath;
-		
-		protected Path mgmtLockPath;
-		protected Path writeLockFile;
-		protected Path readLockFile;
-		
+
+		protected ResourceLock<String> resourceLock;
+		protected LockOwner txnResourceLock;
+
 		protected FileSync fileSync;
 		
 		//		public ResourceApi(String resourceName) {
 			//this.resourceName = resourceName;
-		public ResourceApi(Path resFilePath) {
-			this.resFilePath = resFilePath;
+		public ResourceTxnApi(String[] resKey) {// Path resFilePath) {
+			// this.resFilePath = resFilePath;
 			//resFilePath = txnMgr.resRepo.getRelPath(resourceName);
-			resFileAbsPath = txnMgr.resRepo.getRootPath().resolve(resFilePath);
-			
-			String containerName = resFilePath.toString();
+			resFileAbsPath = PathUtils.resolve(txnMgr.resRepo.getRootPath(), resKey);
+
+			String containerName = PathUtils.join(resKey);
 			
 //			resShadowPath = txnMgr.resShadow.getRelPath(resourceName);			
 //			resFilename = StringUtils.urlEncode(resourceName);
 
-			resShadowPath = txnMgr.resShadow.getRelPath(containerName);			
-			resFilename = resShadowPath.getFileName().toString(); // StringUtils.urlEncode(containerName);
+			journalEntryFile = txnFolder.resolve("." + containerName);
 
-			journalEntryFile = txnFolder.resolve("." + resFilename);
-
-			resShadowBasePath = txnMgr.resShadow.getRootPath();
-			resShadowAbsPath = resShadowBasePath.resolve(resShadowPath);
-			
-			mgmtLockPath = resShadowAbsPath.resolve("mgmt.lock");
-			
 			String readLockFileName = "txn-" + txnId + "read.lock";
-			readLockFile = resShadowAbsPath.resolve(readLockFileName);
-
-			
-			writeLockFile = resShadowAbsPath.resolve("write.lock");
-			
 			
 			// TODO HACK - the data.trig should not probably come from elsewhere
 			fileSync = FileSync.create(resFileAbsPath.resolve("data.trig"));
 		}
 		
+		public LockOwner getTxnResourceLock() {
+			return txnResourceLock;
+		}
+		
 		public Instant getLastModifiedDate() throws IOException {
 			return fileSync.getLastModifiedTime();
+		}
+
+		public String[] getResourceKey() {
+			return resKey;
 		}
 		
 		public Path getResFilePath() {
@@ -420,7 +382,7 @@ public class TxnImpl {
 		public boolean isVisible() {
 			boolean result;
 			
-			if (isLockedHere()) {
+			if (txnResourceLock.isLockedHere()) {
 				result = true;
 			} else {				
 				Instant txnTime = getCreationInstant();
@@ -438,7 +400,17 @@ public class TxnImpl {
 			return result;
 		}
 		
+		public boolean isPersistent() {
+			return true;
+		}
+		
 		public void declareAccess() {
+			if (isPersistent()) {
+				declareAccessCore();
+			}
+		}
+		
+		public void declareAccessCore() {
 			// Path actualLinkTarget = txnFolder.relativize(resShadowAbsPath);
 			Path actualLinkTarget = txnFolder.relativize(resFileAbsPath);
 			try {
@@ -459,6 +431,12 @@ public class TxnImpl {
 		}
 
 		public void undeclareAccess() {
+			if (isPersistent()) {
+				undeclareAccessCore();
+			}
+		}
+
+		public void undeclareAccessCore() {
 			try {
 				// TODO Use delete instead and log an exception?
 				Files.deleteIfExists(journalEntryFile);
@@ -467,125 +445,26 @@ public class TxnImpl {
 			}			
 		}
 
-		public boolean ownsWriteLock() {
-			boolean result;
-			try {
-				Path txnLink = txnMgr.symlinkStrategy.readSymbolicLink(writeLockFile);
-				Path txnAbsLink = writeLockFile.getParent().resolve(txnLink).toAbsolutePath().normalize();
-				
-				result = txnAbsLink.equals(txnFolder);
-			} catch (NoSuchFileException e) {
-				result = false;
-			} catch (Exception e) {
-				throw new RuntimeException(e);
-			}
-			return result;
-		}
-
-		public boolean ownsReadLock() {
-			boolean result;
-			try {
-				Path txnLink = txnMgr.symlinkStrategy.readSymbolicLink(readLockFile);
-				Path txnAbsLink = readLockFile.getParent().resolve(txnLink).toAbsolutePath().normalize();
-				
-				result = txnAbsLink.equals(txnFolder);
-			} catch (NoSuchFileException e) {
-				result = false;
-			} catch (Exception e) {
-				throw new RuntimeException(e);
-			}
-			return result;
-		}
-
-		public Lock getMgmtLock() {
-			Lock result = txnMgr.lockMgr.getLock(mgmtLockPath, true);
-			return result;
-			
-		}
-		
-		// Whether this txn owns the lock
-		public boolean isLockedHere() {
-			boolean result = ownsWriteLock() || ownsReadLock();			
-			return result;
-		}
-
-		
-		public Stream<Path> getReadLocks() throws IOException {
-	        PathMatcher pathMatcher = resShadowBasePath.getFileSystem().getPathMatcher("glob:*.read.lock");
-	        		
-		     return Files.exists(resShadowAbsPath)
-		    		? Files.list(resShadowAbsPath).filter(pathMatcher::matches)
-		    		: Stream.empty();
-		}
-		
-		public void lock(boolean write) {
-			// Check whether we already own the lock
-			boolean ownsR = ownsReadLock();
-			boolean ownsW = ownsWriteLock();
-
-
-			boolean needLock = true;
-			
-			if (ownsR) {
-				if (write) {
-					unlock();
-				} else {
-					needLock = false;
-				}
-			} else if (ownsW) {
-				needLock = false;
-			}
-
-			if (needLock) {
-				repeatWithLock(10, 100, this::getMgmtLock, () -> {
-					// Path writeLockPath = resShadowAbsPath.resolve("write.lock");
-					if (Files.exists(writeLockFile)) {
-						throw new RuntimeException("Write lock already exitsts at " + writeLockFile);
-					}				
-					
-					if (!write) { // read lock requested
-					    // TODO add another read lock entry that points to the txn
-						// String readLockFileName = "txn-" + txnId + ".read.lock";
-						// Path readLockFile = resShadowPath.resolve(readLockFileName);
-						
-						// Use the read lock to link back to the txn that owns it
-				    	Files.createDirectories(readLockFile.getParent());
-				    	txnMgr.symlinkStrategy.createSymbolicLink(readLockFile, readLockFile.getParent().relativize(txnFolder));					
-					} else {
-						boolean existsReadLock;
-						try (Stream<Path> stream = getReadLocks()) {
-							existsReadLock = stream.findAny().isPresent();
-						}
-						
-					    if (existsReadLock) {
-							throw new RuntimeException("Read lock already exitsts at " + writeLockFile);
-					    } else {
-					    	// Create a write lock file that links to the txn folder
-					    	Files.createDirectories(writeLockFile.getParent());
-					    	txnMgr.symlinkStrategy.createSymbolicLink(writeLockFile, writeLockFile.getParent().relativize(txnFolder));
-					    	// Files.createFile(resourceShadowPath.resolve("write.lock"), null);
-					    }
-					}
-					return null;
-				});
-			}
-		}
-		
-		public void unlock() {
-			repeatWithLock(10, 100, this::getMgmtLock, () -> {
-				Files.deleteIfExists(writeLockFile);
-				Files.deleteIfExists(readLockFile);
-				return null;
-			});
-			
-			// If the resource shadow folder is empty try to delete the folder
-			FileUtilsX.deleteEmptyFolders(resShadowAbsPath, resShadowBasePath);
-		}
-		
 		public FileSync getFileSync() {
 			return fileSync;
 		}
+		
+		
+		/* Convenience short hand to lock the resource for this transaction */
+		public void lock(boolean write) {
+			if (write) {
+				txnResourceLock.writeLock().lock();
+			} else {
+				txnResourceLock.readLock().lock();
+			}
+		}
 
+		
+		/** Convenience short hand to unlock either lock */
+		public void unlock() {
+			txnResourceLock.readLock().unlock();
+			txnResourceLock.writeLock().unlock();
+		}
 //		public InputStream openContent() {
 //			fileSync.
 //		}
@@ -731,3 +610,17 @@ public class TxnImpl {
 //}
 //
 
+// Whether this txn owns the lock
+//public boolean isLockedHere() {
+//	boolean result = txnResourceLock.ownsWriteLock() || txnResourceLock.ownsReadLock();			
+//	return result;
+//}
+
+
+//public Stream<Path> getReadLocks() throws IOException {
+//    PathMatcher pathMatcher = resShadowBasePath.getFileSystem().getPathMatcher("glob:*.read.lock");
+//    		
+//     return Files.exists(resShadowAbsPath)
+//    		? Files.list(resShadowAbsPath).filter(pathMatcher::matches)
+//    		: Stream.empty();
+//}

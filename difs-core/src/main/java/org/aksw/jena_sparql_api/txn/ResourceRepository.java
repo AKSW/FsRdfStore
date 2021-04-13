@@ -4,5 +4,10 @@ import java.nio.file.Path;
 
 public interface ResourceRepository<R> {
 	Path getRootPath();
-	Path getRelPath(R name);
+	
+	/** Resource to key */
+	String[] getPathSegments(R name);
+	
+	/** Stream the keys in the repository */
+	// Stream<String[]> streamResourceKeys();
 }

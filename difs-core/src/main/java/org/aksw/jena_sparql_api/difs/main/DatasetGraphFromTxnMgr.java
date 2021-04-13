@@ -2,6 +2,7 @@ package org.aksw.jena_sparql_api.difs.main;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -12,13 +13,14 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.aksw.commons.io.util.PathUtils;
 import org.aksw.jena_sparql_api.dataset.file.DatasetGraphIndexPlugin;
 import org.aksw.jena_sparql_api.txn.DatasetGraphFromFileSystem;
 import org.aksw.jena_sparql_api.txn.FileSync;
 import org.aksw.jena_sparql_api.txn.ResourceRepository;
 import org.aksw.jena_sparql_api.txn.SyncedDataset;
 import org.aksw.jena_sparql_api.txn.TxnImpl;
-import org.aksw.jena_sparql_api.txn.TxnImpl.ResourceApi;
+import org.aksw.jena_sparql_api.txn.TxnImpl.ResourceTxnApi;
 import org.aksw.jena_sparql_api.txn.TxnMgr;
 import org.apache.jena.graph.Graph;
 import org.apache.jena.graph.Node;
@@ -67,37 +69,53 @@ public class DatasetGraphFromTxnMgr
 
 	
     // TODO Make cache configurable; ctor must accept a cache builder
-	protected LoadingCache<Path, SyncedDataset> syncCache = CacheBuilder
-			.newBuilder()
-			.maximumSize(1000)
+	protected LoadingCache<String[], SyncedDataset> syncCache;	
+	
+	public static LoadingCache<String[], SyncedDataset> createCache(TxnMgr txnMgr, CacheBuilder<String[], SyncedDataset> cacheBuilder) {
+		LoadingCache<String[], SyncedDataset> result = cacheBuilder
 			.removalListener(ev -> {
 				logger.debug("Cache eviction of dataset graph for " + ev.getKey());
 				SyncedDataset sd = (SyncedDataset)ev.getValue();
 				sd.save();
 			})
-			.build(new CacheLoader<Path, SyncedDataset>() {
+			.build(new CacheLoader<String[], SyncedDataset>() {
 				@Override
-				public SyncedDataset load(Path key) throws Exception {
+				public SyncedDataset load(String[] key) throws Exception {
 					ResourceRepository<String> resRepo = txnMgr.getResRepo();
 					Path rootPath = resRepo.getRootPath();
-
+	
 					// Path relPath = r// resRepo.getRelPath(key);
-					Path absPath = rootPath.resolve(key);					
+					Path absPath = PathUtils.resolve(rootPath, key);					
 					FileSync fs = FileSync.create(absPath.resolve("data.trig"));
 					
 					return new SyncedDataset(fs);
 				}
 			});
-	
+		return result;
+	}
 	
 	public TxnImpl local() {
 		return txns.get();
 	}
-	
+
 	public DatasetGraphFromTxnMgr(TxnMgr txnMgr, Collection<DatasetGraphIndexPlugin> indexers) {
+		this(txnMgr, indexers, 100);
+	}
+
+	public DatasetGraphFromTxnMgr(TxnMgr txnMgr, Collection<DatasetGraphIndexPlugin> indexers, long maxCacheSize) {
+		this(txnMgr, indexers, 	CacheBuilder.newBuilder().maximumSize(maxCacheSize));
+	}
+	
+//	public DatasetGraphFromTxnMgr(TxnMgr txnMgr, Collection<DatasetGraphIndexPlugin> indexers, CacheBuilder<?, ?> cacheBuilder) {
+//		this(txnMgr, indexers, cacheBuilder);
+//	}
+
+	@SuppressWarnings("unchecked")
+	public DatasetGraphFromTxnMgr(TxnMgr txnMgr, Collection<DatasetGraphIndexPlugin> indexers, CacheBuilder<?, ?> cacheBuilder) {
 		super();
 		this.txnMgr = txnMgr;
 		this.indexers = indexers;
+		this.syncCache = createCache(txnMgr, (CacheBuilder<String[], SyncedDataset>)cacheBuilder);
 	}
 
 	public TxnMgr getTxnMgr() {
@@ -145,15 +163,15 @@ public class DatasetGraphFromTxnMgr
 	public void commit() {
 		
 		try {
-			try (Stream<Path> stream = local().streamAccessedResourcePaths()) {
-				Iterator<Path> it = stream.iterator();
+			try (Stream<String[]> stream = local().streamAccessedResourcePaths()) {
+				Iterator<String[]> it = stream.iterator();
 				while (it.hasNext()) {
-					Path relPath = it.next();
-					logger.debug("Syncing: " + relPath);
+					String[] relPath = it.next();
+					logger.debug("Syncing: " + Arrays.toString(relPath));
 					// Path relPath = txnMgr.getResRepo().getRelPath(res);
 	
-					ResourceApi api = local().getResourceApi(relPath);
-					if (api.ownsWriteLock()) {
+					ResourceTxnApi api = local().getResourceApi(relPath);
+					if (api.getTxnResourceLock().ownsWriteLock()) {
 						// If we own a write lock and the state is dirty then sync
 					    // If there are any in memory changes then write them out
 						SyncedDataset synced = syncCache.get(relPath);
@@ -226,12 +244,12 @@ public class DatasetGraphFromTxnMgr
 			}
 			
 			// TODO Stream the relPaths rather than the string resource names?
-			try (Stream<Path> stream = local().streamAccessedResourcePaths()) {
-				Iterator<Path> it = stream.iterator();
+			try (Stream<String[]> stream = local().streamAccessedResourcePaths()) {
+				Iterator<String[]> it = stream.iterator();
 				while (it.hasNext()) {
-					Path res = it.next();
+					String[] res = it.next();
 					logger.debug("Finalizing and unlocking: " + res);
-					ResourceApi api = local().getResourceApi(res);
+					ResourceTxnApi api = local().getResourceApi(res);
 				
 					if (isCommit) {
 						api.finalizeCommit();
@@ -312,13 +330,13 @@ public class DatasetGraphFromTxnMgr
 	}
 
 	
-	public DatasetGraph mapToDatasetGraph(ResourceApi api) {
+	public DatasetGraph mapToDatasetGraph(ResourceTxnApi api) {
 		api.declareAccess();
 		api.lock(local().isWrite());
-		Path path = api.getResFilePath();
+		String[] resourceKey = api.getResourceKey();
 		SyncedDataset entry;
 		try {
-			entry = syncCache.get(path);
+			entry = syncCache.get(resourceKey);
 		} catch (ExecutionException e) {
 			throw new RuntimeException(e);
 		}
@@ -328,7 +346,7 @@ public class DatasetGraphFromTxnMgr
 	@Override
 	public Iterator<Node> listGraphNodes() {
 		Iterator<Node> result = access(this, () -> {
-			try (Stream<ResourceApi> stream = local().listVisibleFiles()) {
+			try (Stream<ResourceTxnApi> stream = local().listVisibleFiles()) {
 				return stream
 					.map(this::mapToDatasetGraph)
 					.collect(Collectors.toList()).stream() // FIXME only collect if not in a txn
@@ -425,17 +443,18 @@ public class DatasetGraphFromTxnMgr
 	protected void mutateGraph(Node graphNode, Predicate<DatasetGraph> mutator) {
 		mutate(this, () -> {
 			String iri = graphNode.getURI();
-			Path relPath = txnMgr.getResRepo().getRelPath(iri);
+			String[] key = txnMgr.getResRepo().getPathSegments(iri);
+			// Path relPath = FileUtilsX.resolve(txnMgr.getResRepo().getRootPath(), key);
 
 			// Get the resource and lock it for writing
 			// The lock is held until the end of the transaction
-			ResourceApi api = local().getResourceApi(iri);
+			ResourceTxnApi api = local().getResourceApi(iri);
 			api.declareAccess();
 			api.lock(true);
 			
 			SyncedDataset synced;
 			try {
-				synced = syncCache.get(relPath);
+				synced = syncCache.get(key);
 			} catch (ExecutionException e) {
 				throw new RuntimeException(e);
 			}
@@ -563,26 +582,26 @@ public class DatasetGraphFromTxnMgr
     
     protected Iterator<Quad> findInSpecificNamedGraph(Node g, Node s, Node p , Node o) {
     	String res = g.getURI();
-    	Path relPath = txnMgr.getResRepo().getRelPath(res);
+    	String[] relPath = txnMgr.getResRepo().getPathSegments(res);
 
     	
     	return access(this, () -> Stream.of(local().getResourceApi(relPath))
-        	.filter(ResourceApi::isVisible)
+        	.filter(ResourceTxnApi::isVisible)
 			.map(this::mapToDatasetGraph)
 				.collect(Collectors.toList()).stream() // FIXME only collect if not in a txn
 			.flatMap(dg -> Streams.stream(dg.find(Node.ANY, s, p, o))).iterator());
     }
 
     
-    public Stream<ResourceApi> findResources(Node s, Node p, Node o) {
+    public Stream<ResourceTxnApi> findResources(Node s, Node p, Node o) {
         DatasetGraphIndexPlugin bestPlugin = DatasetGraphFromFileSystem.findBestMatch(
         		indexers.iterator(),
         		plugin -> plugin.evaluateFind(s, p, o), (lhs, rhs) -> lhs != null && lhs < rhs);
 
-		Stream<ResourceApi> visibleMatchingResources = bestPlugin != null
+		Stream<ResourceTxnApi> visibleMatchingResources = bestPlugin != null
 				? bestPlugin.listGraphNodes(this, s, p, o)
 		            .map(relPath -> local().getResourceApi(relPath))
-		            .filter(ResourceApi::isVisible)
+		            .filter(ResourceTxnApi::isVisible)
 		        : local().listVisibleFiles();
 
 		return visibleMatchingResources;
