@@ -12,7 +12,8 @@ public abstract class LockBaseRepeat
 		long retryCount = (ms / retryIntervalInMs) + (ms % retryIntervalInMs == 0 ? 0 : 1);
 		
 		boolean result = RetryUtils.simpleRetry(retryCount, retryIntervalInMs, () -> {
-			return singleLockAttempt();
+			boolean r = singleLockAttempt();
+			return r;
 		});
 		
 		return result;

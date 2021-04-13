@@ -19,6 +19,7 @@ public class RetryUtils {
 		for (retryAttempt = 0; retryAttempt < retryCount; ++retryAttempt) {
 			try {
 				result = action.call();
+				break;
 			} catch (Exception e) {
 				logger.warn("Retry failed: " + ExceptionUtils.getRootCauseMessage(e));
 				if (retryAttempt + 1 == retryCount) {

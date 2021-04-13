@@ -38,6 +38,7 @@ public class FileUtilsX {
 			Files.createDirectories(folderPath);
 			try {
 				action.accept(folderPath);
+				break;
 			} catch (Exception e) {
 				if (!Files.exists(folderPath)) {
 					// logger.debug("Retrying folder creation: " + folderPath);
