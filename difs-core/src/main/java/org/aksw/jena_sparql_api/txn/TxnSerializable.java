@@ -1,39 +1,26 @@
 package org.aksw.jena_sparql_api.txn;
 
 import java.io.IOException;
-import java.io.OutputStream;
-import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
-import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.PathMatcher;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 import java.time.Instant;
-import java.util.List;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Consumer;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.aksw.commons.io.util.PathUtils;
-import org.aksw.jena_sparql_api.difs.main.IsolationLevel;
+import org.aksw.jena_sparql_api.difs.main.Array;
 import org.aksw.jena_sparql_api.lock.db.api.LockOwner;
 import org.aksw.jena_sparql_api.lock.db.api.ResourceLock;
-import org.aksw.jena_sparql_api.lock.db.impl.LockOwnerDummy;
-import org.aksw.jena_sparql_api.txn.api.Txn;
 import org.aksw.jena_sparql_api.txn.api.TxnResourceApi;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
-
-public class TxnImpl
-	implements Txn
+public class TxnSerializable
+	extends TxnReadUncommitted
 {
-	private static final Logger logger = LoggerFactory.getLogger(TxnImpl.class);
+	private static final Logger logger = LoggerFactory.getLogger(TxnSerializable.class);
 	
 	protected TxnMgrImpl txnMgr;
 	protected String txnId;
@@ -50,25 +37,31 @@ public class TxnImpl
 	protected transient Path finalizeFile;
 	protected transient Path rollbackFile;	
 	
-	protected IsolationLevel isolationLevel;
-	
+
+//	protected IsolationLevel isolationLevel;
+
+	@Override
+	protected TxnResourceApi createResourceApi(String[] key) {
+		return new TxnResourceApiSerializable(this, key);
+	}
+
 //	protected LockStore<String[], String> lockStore;
 	
-	protected LoadingCache<String[], TxnResourceApi> containerCache = CacheBuilder.newBuilder()
-			.maximumSize(1000)
-			.build(new CacheLoader<String[], TxnResourceApi>() {
-				@Override
-				public TxnResourceApi load(String[] key) throws Exception {
-					return new TxnResourceApiSerializable(key);
-				}		
-			});
-			
+//	protected LoadingCache<String[], TxnResourceApi> containerCache = CacheBuilder.newBuilder()
+//			.maximumSize(1000)
+//			.build(new CacheLoader<String[], TxnResourceApi>() {
+//				@Override
+//				public TxnResourceApi load(String[] key) throws Exception {
+//					return new TxnResourceApiSerializable(key);
+//				}		
+//			});
+//			
 	
-	public TxnImpl(
+	public TxnSerializable(
 			TxnMgrImpl txnMgr,
 			String txnId,
 			Path txnFolder) {
-		super();
+		super(txnMgr, txnId);
 		this.txnMgr = txnMgr;
 		this.txnId = txnId;
 		this.txnFolder = txnFolder;
@@ -85,31 +78,31 @@ public class TxnImpl
 	}
 	
 	
-	@Override
-	public Stream<TxnResourceApi> listVisibleFiles() {
-        
-		// TODO This pure listing of file resources should probably go to the repository
-		PathMatcher pathMatcher = txnMgr.getResRepo().getRootPath().getFileSystem().getPathMatcher("glob:**/*.trig");
-
-	    List<TxnResourceApi> result;
-	    try (Stream<Path> tmp = Files.walk(txnMgr.getResRepo().getRootPath())) {
-	    	// TODO Filter out graphs that were created after the transaction start
-	        result = tmp
-		            .filter(pathMatcher::matches)
-		            // We are interested in the folder - not the file itself: Get the parent
-		            .map(Path::getParent)
-		            .map(path -> txnMgr.resRepo.getRootPath().relativize(path))
-		            .map(PathUtils::getPathSegments)
-		            .map(this::getResourceApi)
-		            .filter(TxnResourceApi::isVisible)
-	        		.collect(Collectors.toList());
-	    } catch (IOException e1) {
-	    	throw new RuntimeException(e1);
-		}
-	    // paths.stream().map(path -> )
-	    
-	    return result.stream();
-	}    
+//	@Override
+//	public Stream<TxnResourceApi> listVisibleFiles() {
+//        
+//		// TODO This pure listing of file resources should probably go to the repository
+//		PathMatcher pathMatcher = txnMgr.getResRepo().getRootPath().getFileSystem().getPathMatcher("glob:**/*.trig");
+//
+//	    List<TxnResourceApi> result;
+//	    try (Stream<Path> tmp = Files.walk(txnMgr.getResRepo().getRootPath())) {
+//	    	// TODO Filter out graphs that were created after the transaction start
+//	        result = tmp
+//		            .filter(pathMatcher::matches)
+//		            // We are interested in the folder - not the file itself: Get the parent
+//		            .map(Path::getParent)
+//		            .map(path -> txnMgr.resRepo.getRootPath().relativize(path))
+//		            .map(PathUtils::getPathSegments)
+//		            .map(this::getResourceApi)
+//		            .filter(TxnResourceApi::isVisible)
+//	        		.collect(Collectors.toList());
+//	    } catch (IOException e1) {
+//	    	throw new RuntimeException(e1);
+//		}
+//	    // paths.stream().map(path -> )
+//	    
+//	    return result.stream();
+//	}    
 
 
 	public Instant getCreationInstant() {
@@ -132,7 +125,7 @@ public class TxnImpl
 	public TxnResourceApi getResourceApi(String[] resRelPath) {
 		TxnResourceApi result;
 		try {
-			result = containerCache.get(resRelPath);
+			result = containerCache.get(Array.wrap(resRelPath));
 		} catch (ExecutionException e) {
 			throw new RuntimeException(e);
 		}
@@ -333,206 +326,120 @@ public class TxnImpl
 	*/
 
 	
-	/**
-	 * Api to a resource w.r.t. a transaction.
-	 * 
-	 * 
-	 * @author raven
-	 *
-	 */
-	public class TxnResourceApiReadUncommitted
-		implements TxnResourceApi
-	{
-		protected String[] resKey;
-		// protected String resFilename;
-		
-		protected Path resFilePath;
-		protected Path resFileAbsPath;
+//	/**
+//	 * Api to a resource w.r.t. a transaction.
+//	 * 
+//	 * 
+//	 * @author raven
+//	 *
+//	 */
+//	public class TxnResourceApiReadUncommitted
+//		implements TxnResourceApi
+//	{
+//		protected String[] resKey;
+//		// protected String resFilename;
+//		
+//		protected Path resFilePath;
+//		protected Path resFileAbsPath;
+//
+//		// Declare an access attempt to the resource in the txn's journal
+//		protected Path journalEntryFile;
+//
+//
+//		protected ResourceLock<String> resourceLock;
+//		protected LockOwner txnResourceLock;
+//
+//		protected FileSync fileSync;
+//		
+//		//		public ResourceApi(String resourceName) {
+//			//this.resourceName = resourceName;
+//		public TxnResourceApiReadUncommitted(String[] resKey) {// Path resFilePath) {
+//			this.resKey = resKey;
+//			// this.resFilePath = resFilePath;
+//			//resFilePath = txnMgr.resRepo.getRelPath(resourceName);
+//			
+//			String resKeyStr = PathUtils.join(resKey);
+//			resourceLock = txnMgr.lockStore.getLockForResource(resKeyStr);
+//			txnResourceLock = resourceLock.get(txnId);
+//			
+//			resFileAbsPath = PathUtils.resolve(txnMgr.resRepo.getRootPath(), resKey);
+//
+//			
+//			String[] resLockKey = txnMgr.lockRepo.getPathSegments(resKeyStr);
+//			String resLockKeyStr = PathUtils.join(resLockKey);
+//			
+//			
+////			resShadowPath = txnMgr.resShadow.getRelPath(resourceName);			
+////			resFilename = StringUtils.urlEncode(resourceName);
+//
+//			journalEntryFile = txnFolder.resolve("." + resLockKeyStr);
+//			// String readLockFileName = "txn-" + txnId + "read.lock";
+//			
+//			// TODO HACK - the data.trig should probably come from elsewhere
+//			fileSync = FileSync.create(resFileAbsPath.resolve("data.trig"));
+//		}
+//		
+//		@Override
+//		public LockOwner getTxnResourceLock() {
+//			return new LockOwnerDummy();
+//		}
+//		
+//		@Override
+//		public Instant getLastModifiedDate() throws IOException {
+//			return fileSync.getLastModifiedTime();
+//		}
+//
+//		@Override
+//		public String[] getResourceKey() {
+//			return resKey;
+//		}
+//		
+////		public Path getResFilePath() {
+////			return resFilePath;
+////		};
+//		
+//
+//		@Override
+//		public boolean isVisible() {
+//			return true;
+//		}
+//
+//		@Override
+//		public void declareAccess() {
+//		}
+//
+//
+//		@Override
+//		public void undeclareAccess() {
+//		}
+//
+//		@Override
+//		public FileSync getFileSync() {
+//			return fileSync;
+//		}
+//		
+//		public void putContent(Consumer<OutputStream> handler) throws IOException {
+//			fileSync.putContent(handler);
+//		}
+//
+//		@Override
+//		public void preCommit() throws Exception {
+//			fileSync.preCommit();
+//		}
+//
+//		@Override
+//		public void finalizeCommit() throws Exception {
+//			fileSync.finalizeCommit();
+//		}
+//
+//		@Override
+//		public void rollback() throws Exception {
+//			fileSync.rollback();
+//		}
+//	}
+//	
+//	
 
-		// Declare an access attempt to the resource in the txn's journal
-		protected Path journalEntryFile;
-
-
-		protected ResourceLock<String> resourceLock;
-		protected LockOwner txnResourceLock;
-
-		protected FileSync fileSync;
-		
-		//		public ResourceApi(String resourceName) {
-			//this.resourceName = resourceName;
-		public TxnResourceApiReadUncommitted(String[] resKey) {// Path resFilePath) {
-			this.resKey = resKey;
-			// this.resFilePath = resFilePath;
-			//resFilePath = txnMgr.resRepo.getRelPath(resourceName);
-			
-			String resKeyStr = PathUtils.join(resKey);
-			resourceLock = txnMgr.lockStore.getLockForResource(resKeyStr);
-			txnResourceLock = resourceLock.get(txnId);
-			
-			resFileAbsPath = PathUtils.resolve(txnMgr.resRepo.getRootPath(), resKey);
-
-			
-			String[] resLockKey = txnMgr.lockRepo.getPathSegments(resKeyStr);
-			String resLockKeyStr = PathUtils.join(resLockKey);
-			
-			
-//			resShadowPath = txnMgr.resShadow.getRelPath(resourceName);			
-//			resFilename = StringUtils.urlEncode(resourceName);
-
-			journalEntryFile = txnFolder.resolve("." + resLockKeyStr);
-			// String readLockFileName = "txn-" + txnId + "read.lock";
-			
-			// TODO HACK - the data.trig should probably come from elsewhere
-			fileSync = FileSync.create(resFileAbsPath.resolve("data.trig"));
-		}
-		
-		@Override
-		public LockOwner getTxnResourceLock() {
-			return new LockOwnerDummy();
-		}
-		
-		@Override
-		public Instant getLastModifiedDate() throws IOException {
-			return fileSync.getLastModifiedTime();
-		}
-
-		@Override
-		public String[] getResourceKey() {
-			return resKey;
-		}
-		
-//		public Path getResFilePath() {
-//			return resFilePath;
-//		};
-		
-
-		@Override
-		public boolean isVisible() {
-			return true;
-		}
-
-		@Override
-		public void declareAccess() {
-		}
-
-
-		@Override
-		public void undeclareAccess() {
-		}
-
-		@Override
-		public FileSync getFileSync() {
-			return fileSync;
-		}
-		
-		public void putContent(Consumer<OutputStream> handler) throws IOException {
-			fileSync.putContent(handler);
-		}
-
-		@Override
-		public void preCommit() throws Exception {
-			fileSync.preCommit();
-		}
-
-		@Override
-		public void finalizeCommit() throws Exception {
-			fileSync.finalizeCommit();
-		}
-
-		@Override
-		public void rollback() throws Exception {
-			fileSync.rollback();
-		}
-	}
-	
-	
-
-	/**
-	 * Api to a resource w.r.t. a transaction.
-	 * 
-	 * 
-	 * @author raven
-	 *
-	 */
-	public class TxnResourceApiSerializable
-		extends TxnResourceApiReadUncommitted
-	{
-
-		//		public ResourceApi(String resourceName) {
-			//this.resourceName = resourceName;
-		public TxnResourceApiSerializable(String[] resKey) {// Path resFilePath) {
-			super(resKey);
-		}
-		
-		@Override
-		public LockOwner getTxnResourceLock() {
-			return txnResourceLock;
-		}
-
-		@Override
-		public boolean isVisible() {
-			boolean result;
-			
-			if (txnResourceLock.isLockedHere()) {
-				result = true;
-			} else {				
-				Instant txnTime = getCreationInstant();
-				Instant resTime;
-				try {
-					resTime = fileSync.getLastModifiedTime();
-				} catch (IOException e) {
-					throw new RuntimeException(e);
-				}
-
-				// If the resource's modified time is null then it did not exist yet
-				result = resTime != null && resTime.isBefore(txnTime); 
-			}
-
-			return result;
-		}
-		
-		@Override
-		public void declareAccess() {
-			// Path actualLinkTarget = txnFolder.relativize(resShadowAbsPath);
-			Path actualLinkTarget = txnFolder.relativize(resFileAbsPath);
-			try {
-				if (Files.exists(journalEntryFile, LinkOption.NOFOLLOW_LINKS)) {
-					boolean verifyAccess = false;
-					
-					if (verifyAccess) {
-						logger.debug("Verifying access " + journalEntryFile);
-						// Verify
-						Path link = txnMgr.symlinkStrategy.readSymbolicLink(journalEntryFile);
-						if (!link.equals(actualLinkTarget)) {
-							throw new RuntimeException(String.format("Validation failed: Attempted to declare access to %s but a different %s already existed ", actualLinkTarget, link));
-						}
-					}					
-				} else {
-					logger.debug("Declaring access from " + journalEntryFile + " to " + actualLinkTarget);
-					FileUtilsX.ensureParentFolderExists(journalEntryFile, f -> {
-						try {
-							txnMgr.symlinkStrategy.createSymbolicLink(journalEntryFile, actualLinkTarget);
-						} catch (FileAlreadyExistsException e) {
-							// Ignore
-							// TODO Verify whether the existing symlink matches the one we wanted to write?
-						}
-					});
-				}
-			} catch (IOException e) {
-				throw new RuntimeException(e);
-			}			
-		}
-
-		@Override
-		public void undeclareAccess() {
-			try {
-				// TODO Use delete instead and log an exception?
-				Files.deleteIfExists(journalEntryFile);
-			} catch (IOException e) {
-				throw new RuntimeException(e);
-			}			
-		}
-	}
 }
 	
 	

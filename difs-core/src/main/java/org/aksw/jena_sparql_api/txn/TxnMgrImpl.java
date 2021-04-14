@@ -121,7 +121,7 @@ public class TxnMgrImpl
 			}
 	
 			logger.debug("Allocated txn folder" + txnFolder);
-			result = new TxnImpl(this, txnId, txnFolder);			
+			result = new TxnSerializable(this, txnId, txnFolder);			
 		}
 		
 		return result;
