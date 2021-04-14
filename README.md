@@ -1,7 +1,34 @@
 # FsRdfStore
-Transactional implementation of Jena's DatasetGraph backed by the file system
+Transactional File-based Respository and SPARQL Engine System. Implementated using Jena's DatasetGraph interface.
 
-The code from [file backed dataset](https://github.com/SmartDataAnalytics/jena-sparql-api/tree/develop/jena-sparql-api-file-backed-dataset) should be refactored into this repository.
+## Motivation
+This work is heavily inspired by Maven's approach to artifact management: Each artifact is addressed by a composite key - called a coordinate - with the essential components being group id, artifact id and version. A simple mapping of Maven coordinates to relative URIs together with a base URL is all that is needed to form an absolute URL from where the artifact's resources can be accessed. In fact, deployment of artifacts is typcially mere WebDAV interactions based on absolute URLs derived from the coordinates.
+
+The main complexity of Semantic Web data is that one has to deal with multiple IDs for the same thing - such as the IRI of a resource itself, its dct:identifier, and possibly those of resources reachable via owl:sameAs links.
+
+In order to overcome these complexities, this work introduces:
+* A file-based repository system where IRIs are resolved to paths in the repository similar to Maven's GAV.
+* File-based indexes to support efficient lookup of data by any alternative identifier
+* A read+write SPARQL interface to the repository
+
+Because of the file-based nature, the whole store can be put under version control using e.g. GIT or SVN - which in addition allows for simple replication.
+
+
+## Features of FsRdfStore
+
+* Java-like IRI-to-path mapping (Data for the graph http://example.org/foobar is written to the folder ./org/example/foobar)
+* Virtual File System based (using Java NIO adapter to Apache Commons VFS2)
+* Transaction Support with isolation levels 'read uncommitted' for unsafe read only access (e.g. using WebDAV) and 'serializable' by means of graph-level file locks
+* Support for File-system based indexes
+
+As such FsRdfStore is not tied to GIT; in fact, FsRdfStore is not tied to version control at all - the files that it writes may be under version control
+
+### How does FsRdfStore store differ from QuitStore?
+The fundamental concept of FsRdfStore to enable version control of RDF data by means of partitioning each named graph into a separate file
+is conceptually similar to QuitStore.
+
+
+The code from [file backed dataset](https://github.com/SmartDataAnalytics/jena-sparql-api/tree/develop/jena-sparql-api-file-backed-dataset) should be refactored into this repository. UPDATE: This has been pretty much done; verify.
 
 
 * Naming: FsRdfStore is not a nice name, maybe something along the lines of dataset in files system (difs), or fbd or fsbd... let's use difs for now.
