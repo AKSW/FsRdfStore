@@ -99,7 +99,14 @@ public class MainPlayground {
 		if (true) {
 			// ISSUE: By default jena iterates all graphs
 			// Can we do better with quad form algebra?
-			String queryStr = "SELECT * { GRAPH ?g { ?s <http://dataid.dbpedia.org/ns/core#group> <https://databus.dbpedia.org/jan/dbpedia-lookup> ; ?p ?o } }";
+			String queryStr =
+					"SELECT * { GRAPH ?g {"
+					+ "  ?s <http://dataid.dbpedia.org/ns/core#group> <https://databus.dbpedia.org/jan/dbpedia-lookup> ."
+					+ "  ?s <http://dataid.dbpedia.org/ns/core#artifact> <https://databus.dbpedia.org/jan/dbpedia-lookup/index> ."
+					+ "  ?s ?p ?o "
+					+ "}}";
+			
+			// String queryStr = "SELECT * { GRAPH ?g { ?s ?p ?o } } LIMIT 10";
 			Query query = QueryFactory.create(queryStr);
 			
 			
@@ -115,10 +122,11 @@ public class MainPlayground {
 			
 			// try (QueryExecution qe = QueryExecutionFactory.create(queryStr, DatasetFactory.wrap(dg))) {
 			Dataset dataset = DatasetFactory.wrap(dg);
-			try (QueryExecution qe = QueryExecutionFactoryQuadForm.create(query, dataset)) {
-				ResultSetMgr.write(System.out, qe.execSelect(), ResultSetLang.SPARQLResultSetText);
-			}
-			
+			Txn.executeRead(dataset, () -> {
+				try (QueryExecution qe = QueryExecutionFactoryQuadForm.create(query, dataset)) {
+					ResultSetMgr.write(System.out, qe.execSelect(), ResultSetLang.SPARQLResultSetText);
+				}
+			});			
 			
 			Node p = NodeFactory.createURI("http://dataid.dbpedia.org/ns/core#group");
 			Node o = NodeFactory.createURI("https://databus.dbpedia.org/jan/dbpedia-lookup");

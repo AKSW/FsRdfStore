@@ -22,6 +22,7 @@ import org.aksw.jena_sparql_api.txn.SyncedDataset;
 import org.aksw.jena_sparql_api.txn.TxnImpl;
 import org.aksw.jena_sparql_api.txn.TxnImpl.ResourceTxnApi;
 import org.aksw.jena_sparql_api.txn.TxnMgr;
+import org.aksw.jena_sparql_api.utils.IteratorClosable;
 import org.apache.jena.graph.Graph;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.Triple;
@@ -35,6 +36,7 @@ import org.apache.jena.sparql.core.GraphView;
 import org.apache.jena.sparql.core.Quad;
 import org.apache.jena.sparql.core.Transactional;
 import org.apache.jena.system.Txn;
+import org.apache.jena.util.iterator.ClosableIterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -583,7 +585,7 @@ public class DatasetGraphFromTxnMgr
 //        return iter ;
 
     
-    protected Iterator<Quad> findInSpecificNamedGraph(Node g, Node s, Node p , Node o) {
+    protected Stream<Quad> findInSpecificNamedGraph(Node g, Node s, Node p , Node o) {
     	logger.debug("Find in specific named graph: " + new Quad(g, s, p, o));
     	String res = g.getURI();
     	String[] relPath = txnMgr.getResRepo().getPathSegments(res);
@@ -592,8 +594,8 @@ public class DatasetGraphFromTxnMgr
     	return access(this, () -> Stream.of(local().getResourceApi(relPath))
         	.filter(ResourceTxnApi::isVisible)
 			.map(this::mapToDatasetGraph)
-				.collect(Collectors.toList()).stream() // FIXME only collect if not in a txn
-			.flatMap(dg -> Streams.stream(dg.find(Node.ANY, s, p, o))).iterator());
+				// .collect(Collectors.toList()).stream() // FIXME only collect if not in a txn
+			.flatMap(dg -> Streams.stream(dg.find(Node.ANY, s, p, o))));
     }
 
     
@@ -627,22 +629,26 @@ public class DatasetGraphFromTxnMgr
 
     
 
-	public Iterator<Quad> findInAnyNamedGraphs(Node s, Node p, Node o) {
+	public Stream<Quad> findInAnyNamedGraphs(Node s, Node p, Node o) {
     	logger.debug("Find in any named graph: " + new Triple(s, p, o));
 
 		// TODO Link the stream to the txn so at latest upon ending the txn the resource can be freed
-		return access(this, () -> {
-			try (Stream<Quad> stream = findInAnyNamedGraphsCore(s, p, o)) {
-				return stream.collect(Collectors.toList()).iterator();
-			}
-		});
+		return access(this, () -> findInAnyNamedGraphsCore(s, p, o));
+				// return stream.collect(Collectors.toList()).iterator();
 	}
 
+	public static <T> ClosableIterator<T> streamToClosableIterator(Stream<T> stream) {
+		return new IteratorClosable<T>(stream.iterator(), () -> stream.close());
+	}
+	
 	@Override
 	public Iterator<Quad> find(Node g, Node s, Node p, Node o) {
-		Iterator<Quad> result = g == null || Node.ANY.equals(g)
+		Stream<Quad> stream = g == null || Node.ANY.equals(g)
 			? findInAnyNamedGraphs(s, p, o)
 			: findInSpecificNamedGraph(g, s, p, o);
+		
+		
+		Iterator<Quad> result = streamToClosableIterator(stream);
 		return result;
 //    	return Txn.calculateRead(this, () -> local().listVisibleFiles().flatMap(api -> {
 //		Path path = api.getResFilePath();

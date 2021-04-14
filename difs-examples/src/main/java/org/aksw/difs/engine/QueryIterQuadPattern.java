@@ -1,5 +1,7 @@
 package org.aksw.difs.engine;
 
+import java.util.Iterator;
+
 import org.apache.jena.atlas.io.IndentedWriter;
 import org.apache.jena.graph.Node;
 import org.apache.jena.sparql.ARQInternalErrorException;
@@ -68,7 +70,18 @@ public class QueryIterQuadPattern extends QueryIterRepeatApply
             Node p2 = tripleNode(p) ;
             Node o2 = tripleNode(o) ;
             DatasetGraph dg = cxt.getDataset();
-            this.graphIter = WrappedIterator.create( dg.find(g2, s2, p2, o2) ) ;
+            this.graphIter = makeClosable( dg.find(g2, s2, p2, o2) ) ;
+        }
+        
+        private static <T> ClosableIterator<T> makeClosable(Iterator<T> it) {
+        	ClosableIterator<T> result;
+        	if (it instanceof ClosableIterator) {
+        		result = (ClosableIterator<T>) it;
+        	} else {
+        		// Output a warning because usually we expect closable iterators?
+        		result = WrappedIterator.create(it);
+        	} 
+        	return result;
         }
 
         private static Node tripleNode(Node node)
