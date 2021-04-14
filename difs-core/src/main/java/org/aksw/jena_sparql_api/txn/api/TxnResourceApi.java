@@ -1,19 +1,50 @@
 package org.aksw.jena_sparql_api.txn.api;
 
 import java.io.IOException;
-import java.io.OutputStream;
-import java.nio.file.Files;
-import java.nio.file.LinkOption;
-import java.nio.file.NoSuchFileException;
-import java.nio.file.Path;
-import java.nio.file.PathMatcher;
 import java.time.Instant;
-import java.util.concurrent.locks.Lock;
-import java.util.function.Consumer;
-import java.util.stream.Stream;
 
+import org.aksw.jena_sparql_api.lock.db.api.LockOwner;
 import org.aksw.jena_sparql_api.txn.FileSync;
-import org.aksw.jena_sparql_api.txn.FileUtilsX;
+import org.aksw.jena_sparql_api.txn.TxnComponent;
+
+
+public interface TxnResourceApi
+	extends TxnComponent
+{
+	String[] getResourceKey();
+	LockOwner getTxnResourceLock();
+
+	
+	Instant getLastModifiedDate() throws IOException;
+
+	void declareAccess();
+	void undeclareAccess();
+	
+	/** Whether the resource is visible to the transaction */
+	boolean isVisible();
+	
+	FileSync getFileSync();
+	
+	/** Convenience short hand to lock the resource for this transaction */
+	default void lock(boolean write) {
+		LockOwner txnResourceLock = getTxnResourceLock();
+		if (write) {
+			txnResourceLock.writeLock().lock();
+		} else {
+			txnResourceLock.readLock().lock();
+		}
+	}
+
+	
+	/** Convenience short hand to unlock either lock */
+	default void unlock() {
+		LockOwner txnResourceLock = getTxnResourceLock();
+
+		txnResourceLock.readLock().unlock();
+		txnResourceLock.writeLock().unlock();
+	}
+
+}
 
 //public interface TxnResourceApi {
 //	public Instant getLastModifiedDate() throws IOException {

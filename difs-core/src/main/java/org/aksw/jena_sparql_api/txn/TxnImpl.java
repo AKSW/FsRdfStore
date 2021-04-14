@@ -20,6 +20,8 @@ import org.aksw.commons.io.util.PathUtils;
 import org.aksw.jena_sparql_api.difs.main.IsolationLevel;
 import org.aksw.jena_sparql_api.lock.db.api.LockOwner;
 import org.aksw.jena_sparql_api.lock.db.api.ResourceLock;
+import org.aksw.jena_sparql_api.txn.api.Txn;
+import org.aksw.jena_sparql_api.txn.api.TxnResourceApi;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,7 +29,9 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 
-public class TxnImpl {
+public class TxnImpl
+	implements Txn
+{
 	private static final Logger logger = LoggerFactory.getLogger(TxnImpl.class);
 	
 	protected TxnMgr txnMgr;
@@ -49,12 +53,12 @@ public class TxnImpl {
 	
 //	protected LockStore<String[], String> lockStore;
 	
-	protected LoadingCache<String[], ResourceTxnApi> containerCache = CacheBuilder.newBuilder()
+	protected LoadingCache<String[], TxnResourceApi> containerCache = CacheBuilder.newBuilder()
 			.maximumSize(1000)
-			.build(new CacheLoader<String[], ResourceTxnApi>() {
+			.build(new CacheLoader<String[], TxnResourceApi>() {
 				@Override
-				public ResourceTxnApi load(String[] key) throws Exception {
-					return new ResourceTxnApi(key);
+				public TxnResourceApi load(String[] key) throws Exception {
+					return new TxnResourceApiSerializable(key);
 				}		
 			});
 			
@@ -80,12 +84,12 @@ public class TxnImpl {
 	}
 	
 	
-	public Stream<ResourceTxnApi> listVisibleFiles() {
+	public Stream<TxnResourceApi> listVisibleFiles() {
         
 		// TODO This pure listing of file resources should probably go to the repository
 		PathMatcher pathMatcher = txnMgr.getResRepo().getRootPath().getFileSystem().getPathMatcher("glob:**/*.trig");
 
-	    List<ResourceTxnApi> result;
+	    List<TxnResourceApi> result;
 	    try (Stream<Path> tmp = Files.walk(txnMgr.getResRepo().getRootPath())) {
 	    	// TODO Filter out graphs that were created after the transaction start
 	        result = tmp
@@ -95,7 +99,7 @@ public class TxnImpl {
 		            .map(path -> txnMgr.resRepo.getRootPath().relativize(path))
 		            .map(PathUtils::getPathSegments)
 		            .map(this::getResourceApi)
-		            .filter(ResourceTxnApi::isVisible)
+		            .filter(TxnResourceApi::isVisible)
 	        		.collect(Collectors.toList());
 	    } catch (IOException e1) {
 	    	throw new RuntimeException(e1);
@@ -116,14 +120,15 @@ public class TxnImpl {
 		}
 	}
 	
-	public ResourceTxnApi getResourceApi(String resourceName) {
+	public TxnResourceApi getResourceApi(String resourceName) {
 		String[] relRelPath = txnMgr.getResRepo().getPathSegments(resourceName);
-		ResourceTxnApi result = getResourceApi(relRelPath);
+		TxnResourceApi result = getResourceApi(relRelPath);
 		return result;
 	}
 
-	public ResourceTxnApi getResourceApi(String[] resRelPath) {
-		ResourceTxnApi result;
+	@Override
+	public TxnResourceApi getResourceApi(String[] resRelPath) {
+		TxnResourceApi result;
 		try {
 			result = containerCache.get(resRelPath);
 		} catch (ExecutionException e) {
@@ -323,7 +328,7 @@ public class TxnImpl {
 	}
 	*/
 
-
+	
 	/**
 	 * Api to a resource w.r.t. a transaction.
 	 * 
@@ -331,8 +336,8 @@ public class TxnImpl {
 	 * @author raven
 	 *
 	 */
-	public class ResourceTxnApi
-		implements TxnComponent
+	public class TxnResourceApiReadUncommitted
+		implements TxnResourceApi
 	{
 		protected String[] resKey;
 		// protected String resFilename;
@@ -351,7 +356,7 @@ public class TxnImpl {
 		
 		//		public ResourceApi(String resourceName) {
 			//this.resourceName = resourceName;
-		public ResourceTxnApi(String[] resKey) {// Path resFilePath) {
+		public TxnResourceApiReadUncommitted(String[] resKey) {// Path resFilePath) {
 			this.resKey = resKey;
 			// this.resFilePath = resFilePath;
 			//resFilePath = txnMgr.resRepo.getRelPath(resourceName);
@@ -374,18 +379,21 @@ public class TxnImpl {
 
 			// String readLockFileName = "txn-" + txnId + "read.lock";
 			
-			// TODO HACK - the data.trig should not probably come from elsewhere
+			// TODO HACK - the data.trig should probably come from elsewhere
 			fileSync = FileSync.create(resFileAbsPath.resolve("data.trig"));
 		}
 		
+		@Override
 		public LockOwner getTxnResourceLock() {
 			return txnResourceLock;
 		}
 		
+		@Override
 		public Instant getLastModifiedDate() throws IOException {
 			return fileSync.getLastModifiedTime();
 		}
 
+		@Override
 		public String[] getResourceKey() {
 			return resKey;
 		}
@@ -395,6 +403,70 @@ public class TxnImpl {
 //		};
 		
 
+		@Override
+		public boolean isVisible() {
+			return true;
+		}
+
+		@Override
+		public void declareAccess() {
+		}
+
+
+		@Override
+		public void undeclareAccess() {
+		}
+
+		@Override
+		public FileSync getFileSync() {
+			return fileSync;
+		}
+		
+		public void putContent(Consumer<OutputStream> handler) throws IOException {
+			fileSync.putContent(handler);
+		}
+
+		@Override
+		public void preCommit() throws Exception {
+			fileSync.preCommit();
+		}
+
+		@Override
+		public void finalizeCommit() throws Exception {
+			fileSync.finalizeCommit();
+		}
+
+		@Override
+		public void rollback() throws Exception {
+			fileSync.rollback();
+		}
+	}
+	
+	
+
+	/**
+	 * Api to a resource w.r.t. a transaction.
+	 * 
+	 * 
+	 * @author raven
+	 *
+	 */
+	public class TxnResourceApiSerializable
+		extends TxnResourceApiReadUncommitted
+	{
+
+		//		public ResourceApi(String resourceName) {
+			//this.resourceName = resourceName;
+		public TxnResourceApiSerializable(String[] resKey) {// Path resFilePath) {
+			super(resKey);
+		}
+		
+		@Override
+		public LockOwner getTxnResourceLock() {
+			return txnResourceLock;
+		}
+
+		@Override
 		public boolean isVisible() {
 			boolean result;
 			
@@ -416,17 +488,8 @@ public class TxnImpl {
 			return result;
 		}
 		
-		public boolean isPersistent() {
-			return true;
-		}
-		
+		@Override
 		public void declareAccess() {
-			if (isPersistent()) {
-				declareAccessCore();
-			}
-		}
-		
-		public void declareAccessCore() {
 			// Path actualLinkTarget = txnFolder.relativize(resShadowAbsPath);
 			Path actualLinkTarget = txnFolder.relativize(resFileAbsPath);
 			try {
@@ -457,62 +520,14 @@ public class TxnImpl {
 			}			
 		}
 
+		@Override
 		public void undeclareAccess() {
-			if (isPersistent()) {
-				undeclareAccessCore();
-			}
-		}
-
-		public void undeclareAccessCore() {
 			try {
 				// TODO Use delete instead and log an exception?
 				Files.deleteIfExists(journalEntryFile);
 			} catch (IOException e) {
 				throw new RuntimeException(e);
 			}			
-		}
-
-		public FileSync getFileSync() {
-			return fileSync;
-		}
-		
-		
-		/* Convenience short hand to lock the resource for this transaction */
-		public void lock(boolean write) {
-			if (write) {
-				txnResourceLock.writeLock().lock();
-			} else {
-				txnResourceLock.readLock().lock();
-			}
-		}
-
-		
-		/** Convenience short hand to unlock either lock */
-		public void unlock() {
-			txnResourceLock.readLock().unlock();
-			txnResourceLock.writeLock().unlock();
-		}
-//		public InputStream openContent() {
-//			fileSync.
-//		}
-		
-		public void putContent(Consumer<OutputStream> handler) throws IOException {
-			fileSync.putContent(handler);
-		}
-
-		@Override
-		public void preCommit() throws Exception {
-			fileSync.preCommit();
-		}
-
-		@Override
-		public void finalizeCommit() throws Exception {
-			fileSync.finalizeCommit();
-		}
-
-		@Override
-		public void rollback() throws Exception {
-			fileSync.rollback();
 		}
 	}
 }

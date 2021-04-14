@@ -20,8 +20,8 @@ import org.aksw.jena_sparql_api.txn.FileSync;
 import org.aksw.jena_sparql_api.txn.ResourceRepository;
 import org.aksw.jena_sparql_api.txn.SyncedDataset;
 import org.aksw.jena_sparql_api.txn.TxnImpl;
-import org.aksw.jena_sparql_api.txn.TxnImpl.ResourceTxnApi;
 import org.aksw.jena_sparql_api.txn.TxnMgr;
+import org.aksw.jena_sparql_api.txn.api.TxnResourceApi;
 import org.aksw.jena_sparql_api.utils.IteratorClosable;
 import org.apache.jena.graph.Graph;
 import org.apache.jena.graph.Node;
@@ -174,7 +174,7 @@ public class DatasetGraphFromTxnMgr
 					logger.debug("Syncing: " + Arrays.toString(relPath));
 					// Path relPath = txnMgr.getResRepo().getRelPath(res);
 	
-					ResourceTxnApi api = local().getResourceApi(relPath);
+					TxnResourceApi api = local().getResourceApi(relPath);
 					if (api.getTxnResourceLock().ownsWriteLock()) {
 						// If we own a write lock and the state is dirty then sync
 					    // If there are any in memory changes then write them out
@@ -253,7 +253,7 @@ public class DatasetGraphFromTxnMgr
 				while (it.hasNext()) {
 					String[] res = it.next();
 					logger.debug("Finalizing and unlocking: " + res);
-					ResourceTxnApi api = local().getResourceApi(res);
+					TxnResourceApi api = local().getResourceApi(res);
 				
 					if (isCommit) {
 						api.finalizeCommit();
@@ -334,7 +334,7 @@ public class DatasetGraphFromTxnMgr
 	}
 
 	
-	public DatasetGraph mapToDatasetGraph(ResourceTxnApi api) {
+	public DatasetGraph mapToDatasetGraph(TxnResourceApi api) {
 		api.declareAccess();
 		api.lock(local().isWrite());
 		String[] resourceKey = api.getResourceKey();
@@ -350,7 +350,7 @@ public class DatasetGraphFromTxnMgr
 	@Override
 	public Iterator<Node> listGraphNodes() {
 		Iterator<Node> result = access(this, () -> {
-			try (Stream<ResourceTxnApi> stream = local().listVisibleFiles()) {
+			try (Stream<TxnResourceApi> stream = local().listVisibleFiles()) {
 				return stream
 					.map(this::mapToDatasetGraph)
 					.collect(Collectors.toList()).stream() // FIXME only collect if not in a txn
@@ -453,7 +453,7 @@ public class DatasetGraphFromTxnMgr
 
 			// Get the resource and lock it for writing
 			// The lock is held until the end of the transaction
-			ResourceTxnApi api = local().getResourceApi(iri);
+			TxnResourceApi api = local().getResourceApi(iri);
 			api.declareAccess();
 			api.lock(true);
 			
@@ -592,22 +592,22 @@ public class DatasetGraphFromTxnMgr
 
     	
     	return access(this, () -> Stream.of(local().getResourceApi(relPath))
-        	.filter(ResourceTxnApi::isVisible)
+        	.filter(TxnResourceApi::isVisible)
 			.map(this::mapToDatasetGraph)
 				// .collect(Collectors.toList()).stream() // FIXME only collect if not in a txn
 			.flatMap(dg -> Streams.stream(dg.find(Node.ANY, s, p, o))));
     }
 
     
-    public Stream<ResourceTxnApi> findResources(Node s, Node p, Node o) {
+    public Stream<TxnResourceApi> findResources(Node s, Node p, Node o) {
         DatasetGraphIndexPlugin bestPlugin = DatasetGraphFromFileSystem.findBestMatch(
         		indexers.iterator(),
         		plugin -> plugin.evaluateFind(s, p, o), (lhs, rhs) -> lhs != null && lhs < rhs);
 
-		Stream<ResourceTxnApi> visibleMatchingResources = bestPlugin != null
+		Stream<TxnResourceApi> visibleMatchingResources = bestPlugin != null
 				? bestPlugin.listGraphNodes(this, s, p, o)
 		            .map(relPath -> local().getResourceApi(relPath))
-		            .filter(ResourceTxnApi::isVisible)
+		            .filter(TxnResourceApi::isVisible)
 		        : local().listVisibleFiles();
 
 		return visibleMatchingResources;

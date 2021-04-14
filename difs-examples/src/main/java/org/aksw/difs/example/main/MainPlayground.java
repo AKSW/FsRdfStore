@@ -77,7 +77,7 @@ public class MainPlayground {
 //		System.out.println(Array.wrap(a).equals(Array.wrap(b))); // true
 		
 		DatasetGraph dg = DifsFactory.newInstance()
-				.setSymbolicLinkStrategy(SymbolicLinkStrategies.STANDARD)
+				.setSymbolicLinkStrategy(SymbolicLinkStrategies.FILE)
 				.setPath(Paths.get("/tmp/gitalog"))
 				.addIndex(RDF.Nodes.type, "type", DatasetGraphIndexerFromFileSystem::uriNodeToPath)
 				.addIndex(NodeFactory.createURI("http://dataid.dbpedia.org/ns/core#group"), "group", DatasetGraphIndexerFromFileSystem::uriNodeToPath)
@@ -100,11 +100,12 @@ public class MainPlayground {
 			// ISSUE: By default jena iterates all graphs
 			// Can we do better with quad form algebra?
 			String queryStr =
-					"SELECT * { GRAPH ?g {"
+					"SELECT * { GRAPH <http://akswnc7.informatik.uni-leipzig.de/dav/dbpedia-lookup/index/2020.09.10/dataid.ttl#Dataset> {"
 					+ "  ?s <http://dataid.dbpedia.org/ns/core#group> <https://databus.dbpedia.org/jan/dbpedia-lookup> ."
 					+ "  ?s <http://dataid.dbpedia.org/ns/core#artifact> <https://databus.dbpedia.org/jan/dbpedia-lookup/index> ."
 					+ "  ?s ?p ?o "
 					+ "}}";
+			System.out.println(queryStr);
 			
 			// String queryStr = "SELECT * { GRAPH ?g { ?s ?p ?o } } LIMIT 10";
 			Query query = QueryFactory.create(queryStr);
