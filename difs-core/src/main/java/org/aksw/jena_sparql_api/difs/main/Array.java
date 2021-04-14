@@ -6,8 +6,8 @@ import java.util.List;
 /**
  * A wrapper for arrays with hash code and equals.
  * The main difference to {@link Arrays#asList(Object...)} is that the underlying array
- * can be accessed directly. Even though the List interface features {@link List#toArray()}
- * this method is not suitable for generics.
+ * can be obtained from instances of this class directly. Note that {@link List#toArray()}
+ * does not support generics.
  * 
  */
 public class Array<T> {
@@ -39,5 +39,10 @@ public class Array<T> {
 	@Override
 	public int hashCode() {
 		return Arrays.hashCode(array);
+	}
+	
+	@Override
+	public String toString() {
+		return Arrays.toString(array);
 	}
 }

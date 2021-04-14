@@ -2,10 +2,12 @@ package org.aksw.jena_sparql_api.dataset.file;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.AbstractMap.SimpleEntry;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -16,6 +18,7 @@ import org.aksw.commons.io.util.PathUtils;
 import org.aksw.commons.io.util.SymLinkUtils;
 import org.aksw.commons.io.util.UriToPathUtils;
 import org.aksw.commons.util.strings.StringUtils;
+import org.aksw.jena_sparql_api.txn.FileUtilsX;
 import org.aksw.jena_sparql_api.txn.ResourceRepository;
 import org.apache.jena.ext.com.google.common.io.MoreFiles;
 import org.apache.jena.graph.Node;
@@ -114,6 +117,55 @@ public class DatasetGraphIndexerFromFileSystem
     	return result;
     }
     
+    
+//    public Entry<Path, Path> computeLink(DatasetGraph dg, Node g, Node s, Node p, Node o) {
+//    	Entry<Path, Path> result = null;
+//   
+//        if (evaluateFind(s, p, o) != null) {
+//            String[] idxRelPath = objectToPath.apply(o);
+//
+//
+////            Path idxRelPath = UriToPathUtils.resolvePath(oRelPath);
+//            Path idxFullPath = PathUtils.resolve(basePath, idxRelPath);
+//
+//            String tgtIri = g.getURI();
+//            Path tgtBasePath = syncedGraph.getRootPath();
+//            String[] tgtRelPath = syncedGraph.getPathSegments(tgtIri);
+//
+//            String coreName = pathToFilename(tgtRelPath);
+//            
+//            // String tgtFileName = syncedGraph.getFilename();
+//            // String tgtFileName = filename;
+//            Path symLinkTgtAbsFile = PathUtils.resolve(tgtBasePath, tgtRelPath).resolve(tgtFilename);
+////            Path symLinkTgtRelFile = idxFullPath.relativize(symLinkTgtAbsFile);
+//
+//            Path file = Paths.get(tgtFilename);
+//            String prefix = MoreFiles.getNameWithoutExtension(file);
+//            prefix = prefix + "." + coreName;
+//            String suffix = MoreFiles.getFileExtension(file);
+//            suffix = suffix.isEmpty() ? "" : "." + suffix;
+//            suffix += ".link";
+//        }
+//        
+//        return result;
+//    }
+//    
+//    @Override
+//    public void add(DatasetGraph dg, Node g, Node s, Node p, Node o) {
+//    	Entry<Path, Path> e = computeLink(dg, g, s, p, o);    	
+//    	if (e != null) {
+//    		Path path = e.getKey();
+//    		Path target = e.getValue();
+//    		try {
+//	    		FileUtilsX.ensureFolderExists(path, x -> {
+//	    			symlinkStrategy.createSymbolicLink(path, target);
+//	    		});
+//    		} catch (Exception e) {
+//    			throw new RuntimeException(e);
+//    		}
+//    	}
+//    }
+    
     @Override
     public void add(DatasetGraph dg, Node g, Node s, Node p, Node o) {
 //        Node g = quad.getGraph();
@@ -122,7 +174,6 @@ public class DatasetGraphIndexerFromFileSystem
 //        Node o = quad.getObject();
         if (evaluateFind(s, p, o) != null) {
             String[] idxRelPath = objectToPath.apply(o);
-
 
 //            Path idxRelPath = UriToPathUtils.resolvePath(oRelPath);
             Path idxFullPath = PathUtils.resolve(basePath, idxRelPath);
@@ -138,19 +189,25 @@ public class DatasetGraphIndexerFromFileSystem
             Path symLinkTgtAbsFile = PathUtils.resolve(tgtBasePath, tgtRelPath).resolve(tgtFilename);
 //            Path symLinkTgtRelFile = idxFullPath.relativize(symLinkTgtAbsFile);
 
+            // Compute prefix/suffix
             Path file = Paths.get(tgtFilename);
-            String prefix = MoreFiles.getNameWithoutExtension(file);
-            prefix = prefix + "." + coreName;
-            String suffix = MoreFiles.getFileExtension(file);
-            suffix = suffix.isEmpty() ? "" : "." + suffix;
-            suffix += ".link";
+            String tmpPrefix = MoreFiles.getNameWithoutExtension(file);
+            String prefix = tmpPrefix + "." + coreName;
+            
+            String tmpSuffix = MoreFiles.getFileExtension(file);
+            tmpSuffix = tmpSuffix.isEmpty() ? "" : "." + tmpSuffix;
+            String suffix = tmpSuffix + ".link";
 
             try {
-                Files.createDirectories(idxFullPath);
+//                Files.createDirectories(idxFullPath);
+	    		FileUtilsX.ensureFolderExists(idxFullPath, x -> {
+	                SymLinkUtils.allocateSymbolicLink(symlinkStrategy, symLinkTgtAbsFile, idxFullPath, prefix, suffix);
+	    			// symlinkStrategy.createSymbolicLink(path, target);
+	    		});
+
                 // TODO Possibly extend allocateSymbolicLink with a flag to update the symlink rather
                 // having to catch FileAlreadyExistsException here
                 //SymlinkStrategy symlinkStrategy = extractSymlinkStrategy(dg);
-                SymLinkUtils.allocateSymbolicLink(symlinkStrategy, symLinkTgtAbsFile, idxFullPath, prefix, suffix);
             } catch (Exception e) {
                  throw new RuntimeException(e);
             }
@@ -199,6 +256,15 @@ public class DatasetGraphIndexerFromFileSystem
 
 	            String coreName = pathToFilename(tgtRelPath);
 
+	            // Compute prefix/suffix
+	            Path file = Paths.get(tgtFilename);
+	            String tmpPrefix = MoreFiles.getNameWithoutExtension(file);
+	            String prefix = tmpPrefix + "." + coreName;
+	            
+	            String tmpSuffix = MoreFiles.getFileExtension(file);
+	            tmpSuffix = tmpSuffix.isEmpty() ? "" : "." + tmpSuffix;
+	            String suffix = tmpSuffix + ".link";
+
 //	             String tgtFileName = filename;
 
 	
@@ -208,15 +274,37 @@ public class DatasetGraphIndexerFromFileSystem
 //	            suffix = suffix.isEmpty() ? "" : "." + suffix;
 
 	            // FIXME This looks broken - delete won't work
-	            Path symLinkSrcFile = idxFullPath.resolve(tgtFilename);
+	            // Path symLinkSrcFile = idxFullPath.resolve(tgtFilename);
 	            
 	//            Path symLinkTgtFile = tgtRelPath.resolve(tgtFileName);
 	
 	
 	            try {
-	                boolean isSymlink = Files.isSymbolicLink(symLinkSrcFile);
-	                if (isSymlink) {
-	                    Files.delete(symLinkSrcFile);
+	            	Map<Path, Path> links;
+	            	try {
+	            		links = SymLinkUtils.readSymbolicLinks(symlinkStrategy, idxFullPath, prefix, suffix);
+	            	} catch (NoSuchFileException e) {
+	            		links = Collections.emptyMap();
+	            	}
+	                // boolean isSymlink = Files.isSymbolicLink(symLinkSrcFile);
+	                // if (isSymlink) {
+	                {
+	                	// TODO Find the entry that links to the target
+	                	Path deletePath = links.entrySet().stream()
+	                		.filter(srcToTgt -> {
+	                            Path absTgt = SymLinkUtils.resolveSymLinkAbsolute(srcToTgt.getKey(), srcToTgt.getValue());
+
+	                			String[] key = linkTargetToKey(absTgt);
+	                			boolean r = Arrays.equals(key, idxRelPath);
+	                			return r;
+	                		})
+	                		.map(Entry::getKey)
+	                		.findFirst().orElse(null)
+	                		;
+	                	
+	                	if (deletePath != null) {
+	                		FileUtilsX.deleteFileIfExistsAndThenDeleteEmptyFolders(deletePath, basePath);
+	                	}
 	                    // TODO Delete empty directory
 	                    // FileUtils.deleteDirectoryIfEmpty(basePath, symLinkSrcFile.getParent());
 	                }
@@ -253,27 +341,37 @@ public class DatasetGraphIndexerFromFileSystem
      * @return
      * @throws IOException
      */
-    public static Stream<Entry<Path, Path>> readSymbolicLinks(SymbolicLinkStrategy symlinkStrategy, Path sourceFolder, String prefix, String suffix) throws IOException {
-        return Files.list(sourceFolder)
-                .filter(symlinkStrategy::isSymbolicLink)
-                .filter(path -> {
-                    String fileName = path.getFileName().toString();
+//    public static Stream<Entry<Path, Path>> readSymbolicLinks(SymbolicLinkStrategy symlinkStrategy, Path sourceFolder, String prefix, String suffix) throws IOException {
+//        return Files.list(sourceFolder)
+//                .filter(symlinkStrategy::isSymbolicLink)
+//                .filter(path -> {
+//                    String fileName = path.getFileName().toString();
+//
+//                    boolean r = fileName.startsWith(prefix) && fileName.endsWith(suffix);
+//                    // TODO Check that the string between prefix and suffix is either an empty string
+//                    // or corresponds to a number
+//                    return r;
+//                })
+//                .flatMap(path -> {
+//                    Stream<Entry<Path, Path>> r;
+//                    try {
+//                        r = Stream.of(new SimpleEntry<>(path, symlinkStrategy.readSymbolicLink(path)));
+//                    } catch (IOException e) {
+//                        // logger.warn("Error reading symoblic link; skipping", e);
+//                        r = Stream.empty();
+//                    }
+//                    return r;
+//                });
+//    }
+    
+    
+    public String[] linkTargetToKey(Path linkTarget) {
+        Path tgtRelFile = syncedGraph.getRootPath().relativize(linkTarget);
 
-                    boolean r = fileName.startsWith(prefix) && fileName.endsWith(suffix);
-                    // TODO Check that the string between prefix and suffix is either an empty string
-                    // or corresponds to a number
-                    return r;
-                })
-                .flatMap(path -> {
-                    Stream<Entry<Path, Path>> r;
-                    try {
-                        r = Stream.of(new SimpleEntry<>(path, symlinkStrategy.readSymbolicLink(path)));
-                    } catch (IOException e) {
-                        // logger.warn("Error reading symoblic link; skipping", e);
-                        r = Stream.empty();
-                    }
-                    return r;
-                });
+        // Get the path (without the filename)
+        Path tgtRelPath = tgtRelFile.getParent();
+        String[] result = PathUtils.getPathSegments(tgtRelPath);
+        return result;
     }
     
     public Stream<String[]> listGraphNodes(DatasetGraph dg, Node s, Node p, Node o) {
@@ -289,35 +387,47 @@ public class DatasetGraphIndexerFromFileSystem
         //Path relPath = syncedGraph.getRelPathForIri(tgtIri);
 //        String fileName = syncedGraph.getFilename();
 
-        String coreName = pathToFilename(relPath);
+//        String coreName = pathToFilename(relPath);
+//        Path file = Paths.get(tgtFilename);
+//        String prefix = MoreFiles.getNameWithoutExtension(file);
+//        prefix = prefix + "." + coreName;
+//        String suffix = MoreFiles.getFileExtension(file);
+//        suffix = suffix.isEmpty() ? "" : "." + suffix;
+//        suffix += ".link";
+        // Compute prefix/suffix
+        // String coreName = pathToFilename(relPath);
 
         Path file = Paths.get(tgtFilename);
-        String prefix = MoreFiles.getNameWithoutExtension(file);
-        prefix = prefix + "." + coreName;
-        String suffix = MoreFiles.getFileExtension(file);
-        suffix = suffix.isEmpty() ? "" : "." + suffix;
-        suffix += ".link";
+        String tmpPrefix = MoreFiles.getNameWithoutExtension(file);
+        String prefix = tmpPrefix + ".";
+        
+        String tmpSuffix = MoreFiles.getFileExtension(file);
+        tmpSuffix = tmpSuffix.isEmpty() ? "" : "." + tmpSuffix;
+        String suffix = tmpSuffix + ".link";
 
-//        Path symLinkTgtFile = relPath.resolve(fileName);
-
-
+        
+        
         Path symLinkSrcPath = PathUtils.resolve(basePath, relPath);
         Stream<Entry<Path, Path>> symLinkTgtPaths;
         try {
-            symLinkTgtPaths = Files.exists(symLinkSrcPath)
-                    ? readSymbolicLinks(symlinkStrategy, symLinkSrcPath, prefix, suffix)
-                    : Stream.empty();
-            
+        	try {
+	            symLinkTgtPaths = Files.exists(symLinkSrcPath)
+	                    ? SymLinkUtils.streamSymbolicLinks(symlinkStrategy, symLinkSrcPath, prefix, suffix)
+	                    : Stream.empty();
+        	} catch (Exception e) {
+        		throw new RuntimeException(e);
+        	}
             
             Stream<String[]> result = symLinkTgtPaths.map(srcToTgt -> {
                 Path absTgt = SymLinkUtils.resolveSymLinkAbsolute(srcToTgt.getKey(), srcToTgt.getValue());
-                Path tgtRelFile = syncedGraph.getRootPath().relativize(absTgt);
-
-                // Get the path (without the filename)
-                Path tgtRelPath = tgtRelFile.getParent();
-                return tgtRelPath;
-            })
-            .map(PathUtils::getPathSegments);
+                String[] r = linkTargetToKey(absTgt);
+                return r;
+//                Path tgtRelFile = syncedGraph.getRootPath().relativize(absTgt);
+//
+//                // Get the path (without the filename)
+//                Path tgtRelPath = tgtRelFile.getParent();
+//                return tgtRelPath;
+            });
             
             return result;
         } catch (Exception e) {

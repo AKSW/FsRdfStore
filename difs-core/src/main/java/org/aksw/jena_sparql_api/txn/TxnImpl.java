@@ -431,12 +431,16 @@ public class TxnImpl {
 			Path actualLinkTarget = txnFolder.relativize(resFileAbsPath);
 			try {
 				if (Files.exists(journalEntryFile, LinkOption.NOFOLLOW_LINKS)) {
-					// Verify
-					Path link = txnMgr.symlinkStrategy.readSymbolicLink(journalEntryFile);
-					if (!link.equals(actualLinkTarget)) {
-						throw new RuntimeException(String.format("Validation failed: Attempted to declare access to %s but a different %s already existed ", actualLinkTarget, link));
-					}
+					boolean verifyAccess = false;
 					
+					if (verifyAccess) {
+						logger.debug("Verifying access " + journalEntryFile);
+						// Verify
+						Path link = txnMgr.symlinkStrategy.readSymbolicLink(journalEntryFile);
+						if (!link.equals(actualLinkTarget)) {
+							throw new RuntimeException(String.format("Validation failed: Attempted to declare access to %s but a different %s already existed ", actualLinkTarget, link));
+						}
+					}					
 				} else {
 					logger.debug("Declaring access from " + journalEntryFile + " to " + actualLinkTarget);
 					FileUtilsX.ensureParentFolderExists(journalEntryFile, f -> {

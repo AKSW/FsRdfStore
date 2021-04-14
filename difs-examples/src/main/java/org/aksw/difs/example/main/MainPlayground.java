@@ -5,17 +5,24 @@ import java.nio.file.Paths;
 
 import org.aksw.common.io.util.symlink.SymbolicLinkStrategies;
 import org.aksw.difs.builder.DifsFactory;
+import org.aksw.difs.engine.QueryExecutionFactoryQuadForm;
 import org.aksw.difs.index.impl.RdfIndexerFactoryLexicalForm;
 import org.aksw.difs.index.impl.RdfTermIndexerFactoryIriToFolder;
 import org.aksw.difs.system.domain.StoreDefinition;
 import org.aksw.jena_sparql_api.dataset.file.DatasetGraphIndexerFromFileSystem;
+import org.apache.jena.fuseki.main.FusekiServer;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.NodeFactory;
 import org.apache.jena.query.Dataset;
 import org.apache.jena.query.DatasetFactory;
+import org.apache.jena.query.Query;
+import org.apache.jena.query.QueryExecution;
+import org.apache.jena.query.QueryFactory;
 import org.apache.jena.rdf.model.ModelFactory;
 import org.apache.jena.riot.RDFDataMgr;
 import org.apache.jena.riot.RDFFormat;
+import org.apache.jena.riot.ResultSetMgr;
+import org.apache.jena.riot.resultset.ResultSetLang;
 import org.apache.jena.sparql.core.DatasetGraph;
 import org.apache.jena.system.Txn;
 import org.apache.jena.vocabulary.DCAT;
@@ -49,6 +56,18 @@ public class MainPlayground {
 		RDFDataMgr.write(System.out, sd.getModel(), RDFFormat.TURTLE_PRETTY);
 	}
 	
+	public static void main5(String[] args) {
+		Dataset ds = DatasetFactory.create();
+		FusekiServer server = FusekiServer.create()
+				.port(3030)
+				.add("/rdf", ds)
+				.build();
+		System.out.println("Starting server");
+		server.start();
+		server.join();
+		System.out.println();
+	}
+	
 	public static void main(String[] args) throws IOException {
 //		String[] a = new String[] {"a", "b"};
 //		String[] b = new String[] {"a", "b"};
@@ -58,8 +77,9 @@ public class MainPlayground {
 //		System.out.println(Array.wrap(a).equals(Array.wrap(b))); // true
 		
 		DatasetGraph dg = DifsFactory.newInstance()
-				.setSymbolicLinkStrategy(SymbolicLinkStrategies.FILE)
+				.setSymbolicLinkStrategy(SymbolicLinkStrategies.STANDARD)
 				.setPath(Paths.get("/tmp/gitalog"))
+				.addIndex(RDF.Nodes.type, "type", DatasetGraphIndexerFromFileSystem::uriNodeToPath)
 				.addIndex(NodeFactory.createURI("http://dataid.dbpedia.org/ns/core#group"), "group", DatasetGraphIndexerFromFileSystem::uriNodeToPath)
 				.addIndex(NodeFactory.createURI("http://purl.org/dc/terms/hasVersion"), "version", DatasetGraphIndexerFromFileSystem::iriOrLexicalFormToToPath)
 				.addIndex(DCAT.downloadURL.asNode(), "downloadUrl", DatasetGraphIndexerFromFileSystem::uriNodeToPath)
@@ -76,9 +96,43 @@ public class MainPlayground {
 			});
 		}
 
-//		dg.find(Node.ANY, Node.ANY, DCTerms.identifier.asNode(), NodeFactory.createLiteral("38a99f0e49b70f41d3774ed3127e06de01dc766f"))
-//			.forEachRemaining(x -> System.out.println("Found: " + x));
-		
+		if (true) {
+			// ISSUE: By default jena iterates all graphs
+			// Can we do better with quad form algebra?
+			String queryStr = "SELECT * { GRAPH ?g { ?s <http://dataid.dbpedia.org/ns/core#group> <https://databus.dbpedia.org/jan/dbpedia-lookup> ; ?p ?o } }";
+			Query query = QueryFactory.create(queryStr);
+			
+			
+			
+			// Op op = Algebra.toQuadForm(Algebra.compile(query));
+//	        Context context = ARQ.getContext().copy() ;
+//	        context.set(ARQConstants.sysCurrentTime, NodeFactoryExtra.nowAsDateTime()) ;
+//	        ExecutionContext env = new ExecutionContext(context, null, null, null) ; 
+//
+//			QC.execute(op, BindingFactory.root(), env);
+//			new QueryExecutionBase(query, d, context, null)
+			
+			
+			// try (QueryExecution qe = QueryExecutionFactory.create(queryStr, DatasetFactory.wrap(dg))) {
+			Dataset dataset = DatasetFactory.wrap(dg);
+			try (QueryExecution qe = QueryExecutionFactoryQuadForm.create(query, dataset)) {
+				ResultSetMgr.write(System.out, qe.execSelect(), ResultSetLang.SPARQLResultSetText);
+			}
+			
+			
+			Node p = NodeFactory.createURI("http://dataid.dbpedia.org/ns/core#group");
+			Node o = NodeFactory.createURI("https://databus.dbpedia.org/jan/dbpedia-lookup");
+			
+//			Node s = NodeFactory.createURI("http://example.org/test");
+//			dg.delete(s, s, p, o);
+//			dg.add(s, s, p, o);
+			
+			
+//			Node p = Node.ANY, DCTerms.identifier.asNode();
+//			Node o = NodeFactory.createLiteral("38a99f0e49b70f41d3774ed3127e06de01dc766f")
+//			dg.find(Node.ANY, Node.ANY, p, o)
+//				.forEachRemaining(x -> System.out.println("Found: " + x));
+		}
 		if (false) {
 			Txn.executeWrite(d, () -> {
 				d.asDatasetGraph().delete(RDF.Nodes.first, RDF.Nodes.first, RDF.Nodes.type, RDF.Nodes.Property);
@@ -86,10 +140,12 @@ public class MainPlayground {
 		}
 //
 
-		Txn.executeWrite(d, () -> {
-			d.asDatasetGraph().add(RDF.Nodes.type, RDF.Nodes.type, RDF.Nodes.type, RDF.Nodes.Property);
-			d.asDatasetGraph().add(RDF.Nodes.first, RDF.Nodes.first, RDF.Nodes.type, RDF.Nodes.Property);
-		});
+		if (false) {
+			Txn.executeWrite(d, () -> {
+//				d.asDatasetGraph().add(RDF.Nodes.type, RDF.Nodes.type, RDF.Nodes.type, RDF.Nodes.Property);
+//				d.asDatasetGraph().add(RDF.Nodes.first, RDF.Nodes.first, RDF.Nodes.type, RDF.Nodes.Property);
+			});
+		}
 	
 		
 //		RDFDataMgr.write(System.out, d, RDFFormat.TRIG_PRETTY);

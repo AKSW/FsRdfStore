@@ -60,7 +60,9 @@ public class FileUtilsX {
 	public static void deleteFileIfExistsAndThenDeleteEmptyFolders(Path path, Path baseFolder) throws IOException {
 		Files.deleteIfExists(path);
 		path = path.getParent();
-		deleteEmptyFolders(path, baseFolder);
+		if (path != null) {
+			deleteEmptyFolders(path, baseFolder);
+		}
 	}
 
 	public static void deleteEmptyFolders(Path path, Path baseFolder) {

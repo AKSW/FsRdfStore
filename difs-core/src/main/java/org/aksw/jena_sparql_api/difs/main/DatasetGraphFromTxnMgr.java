@@ -24,6 +24,7 @@ import org.aksw.jena_sparql_api.txn.TxnImpl.ResourceTxnApi;
 import org.aksw.jena_sparql_api.txn.TxnMgr;
 import org.apache.jena.graph.Graph;
 import org.apache.jena.graph.Node;
+import org.apache.jena.graph.Triple;
 import org.apache.jena.query.ReadWrite;
 import org.apache.jena.query.TxnType;
 import org.apache.jena.sparql.JenaTransactionException;
@@ -261,7 +262,7 @@ public class DatasetGraphFromTxnMgr
 					if (synced != null) {
 						if (synced.isDirty()) {
 							if (isCommit) {
-								synced.getDiff().applyChanges();					
+								synced.getDiff().materialize();					
 							} else {
 								synced.getDiff().clearChanges();
 							}
@@ -384,6 +385,7 @@ public class DatasetGraphFromTxnMgr
 	
 	@Override
 	public void add(Node g, Node s, Node p, Node o) {
+//		System.out.println(new Quad(g, s, p, o));
 		mutateGraph(g, dg -> {
 			boolean r = !dg.contains(g, s, p, o);
 			if (r) {
@@ -582,6 +584,7 @@ public class DatasetGraphFromTxnMgr
 
     
     protected Iterator<Quad> findInSpecificNamedGraph(Node g, Node s, Node p , Node o) {
+    	logger.debug("Find in specific named graph: " + new Quad(g, s, p, o));
     	String res = g.getURI();
     	String[] relPath = txnMgr.getResRepo().getPathSegments(res);
 
@@ -610,15 +613,23 @@ public class DatasetGraphFromTxnMgr
 
 	public Stream<Quad> findInAnyNamedGraphsCore(Node s, Node p, Node o) {
 		// findResources(s, p, o)
-		return findResources(s, p, o)
-			.map(this::mapToDatasetGraph)
-				.collect(Collectors.toList()).stream() // FIXME only collect if not in a txn
-			.flatMap(dg -> Streams.stream(dg.find(Node.ANY, s, p, o)));
+		return
+			findResources(s, p, o)
+				.map(resourceTxnApi -> {
+					DatasetGraph r = mapToDatasetGraph(resourceTxnApi);
+					return r;
+				})
+				// .collect(Collectors.toList()).stream() // FIXME only collect if not in a txn
+				.flatMap(dg -> {
+					return Streams.stream(dg.find(Node.ANY, s, p, o));
+				});
 	}
 
     
 
 	public Iterator<Quad> findInAnyNamedGraphs(Node s, Node p, Node o) {
+    	logger.debug("Find in any named graph: " + new Triple(s, p, o));
+
 		// TODO Link the stream to the txn so at latest upon ending the txn the resource can be freed
 		return access(this, () -> {
 			try (Stream<Quad> stream = findInAnyNamedGraphsCore(s, p, o)) {
