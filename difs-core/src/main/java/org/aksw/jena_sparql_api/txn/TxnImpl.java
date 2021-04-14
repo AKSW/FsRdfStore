@@ -20,6 +20,7 @@ import org.aksw.commons.io.util.PathUtils;
 import org.aksw.jena_sparql_api.difs.main.IsolationLevel;
 import org.aksw.jena_sparql_api.lock.db.api.LockOwner;
 import org.aksw.jena_sparql_api.lock.db.api.ResourceLock;
+import org.aksw.jena_sparql_api.lock.db.impl.LockOwnerDummy;
 import org.aksw.jena_sparql_api.txn.api.Txn;
 import org.aksw.jena_sparql_api.txn.api.TxnResourceApi;
 import org.slf4j.Logger;
@@ -34,7 +35,7 @@ public class TxnImpl
 {
 	private static final Logger logger = LoggerFactory.getLogger(TxnImpl.class);
 	
-	protected TxnMgr txnMgr;
+	protected TxnMgrImpl txnMgr;
 	protected String txnId;
 	protected Path txnFolder;
 	
@@ -64,7 +65,7 @@ public class TxnImpl
 			
 	
 	public TxnImpl(
-			TxnMgr txnMgr,
+			TxnMgrImpl txnMgr,
 			String txnId,
 			Path txnFolder) {
 		super();
@@ -84,6 +85,7 @@ public class TxnImpl
 	}
 	
 	
+	@Override
 	public Stream<TxnResourceApi> listVisibleFiles() {
         
 		// TODO This pure listing of file resources should probably go to the repository
@@ -156,6 +158,7 @@ public class TxnImpl
 //		}
 //	}
 
+	@Override
 	public boolean isWrite() {
 		boolean result = Files.exists(txnFolder.resolve("write"));
 		return result;
@@ -282,6 +285,7 @@ public class TxnImpl
 		}		
 	}
 
+	@Override
 	public Stream<String[]> streamAccessedResourcePaths() throws IOException {
 		return streamAccessedEntries()
 			.map(this::getRelPathForJournalEntry);
@@ -376,7 +380,6 @@ public class TxnImpl
 //			resFilename = StringUtils.urlEncode(resourceName);
 
 			journalEntryFile = txnFolder.resolve("." + resLockKeyStr);
-
 			// String readLockFileName = "txn-" + txnId + "read.lock";
 			
 			// TODO HACK - the data.trig should probably come from elsewhere
@@ -385,7 +388,7 @@ public class TxnImpl
 		
 		@Override
 		public LockOwner getTxnResourceLock() {
-			return txnResourceLock;
+			return new LockOwnerDummy();
 		}
 		
 		@Override

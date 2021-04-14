@@ -29,7 +29,8 @@ import org.aksw.jena_sparql_api.lock.LockManagerCompound;
 import org.aksw.jena_sparql_api.lock.LockManagerPath;
 import org.aksw.jena_sparql_api.lock.ThreadLockManager;
 import org.aksw.jena_sparql_api.txn.ResourceRepository;
-import org.aksw.jena_sparql_api.txn.TxnMgr;
+import org.aksw.jena_sparql_api.txn.TxnMgrImpl;
+import org.aksw.jena_sparql_api.txn.api.TxnMgr;
 import org.apache.jena.graph.Node;
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.Property;
@@ -56,6 +57,7 @@ public class DifsFactory {
 	protected Path storeRelPath;
 	protected Path indexRelPath;
 	protected Collection<DatasetGraphIndexPlugin> indexers;
+	protected boolean useJournal = true;
 
 	public DifsFactory() {
 		this.indexers = new LinkedHashSet<>();
@@ -127,6 +129,15 @@ public class DifsFactory {
 		return this;
 	}
 	
+	public DifsFactory useJournal(boolean useJournal) {
+		this.useJournal = useJournal;
+		return this;
+	}
+	
+	public boolean isUseJournal() {
+		return useJournal;
+	}
+
 		
 	public DifsFactory setPath(Path repoRootPath) {
 		this.repoRootPath = repoRootPath;
@@ -186,9 +197,9 @@ public class DifsFactory {
 
 		SymbolicLinkStrategy effSymlinkStrategy = symbolicLinkStrategy != null ? symbolicLinkStrategy : new SymbolicLinkStrategyStandard(); 
 
-		TxnMgr txnMgr = new TxnMgr(lockMgr, txnStore, resStore, resLocks, effSymlinkStrategy);
+		TxnMgr txnMgr = new TxnMgrImpl(lockMgr, txnStore, resStore, resLocks, effSymlinkStrategy);
 		
-		return new DatasetGraphFromTxnMgr(txnMgr, indexers);
+		return new DatasetGraphFromTxnMgr(useJournal, txnMgr, indexers);
 		// TODO Read configuration file if it exists
 		// return DatasetGraphFromFileSystem.create(repoRootPath, lockMgr);
 	}

@@ -19,8 +19,8 @@ import org.aksw.jena_sparql_api.txn.DatasetGraphFromFileSystem;
 import org.aksw.jena_sparql_api.txn.FileSync;
 import org.aksw.jena_sparql_api.txn.ResourceRepository;
 import org.aksw.jena_sparql_api.txn.SyncedDataset;
-import org.aksw.jena_sparql_api.txn.TxnImpl;
-import org.aksw.jena_sparql_api.txn.TxnMgr;
+import org.aksw.jena_sparql_api.txn.api.Txn;
+import org.aksw.jena_sparql_api.txn.api.TxnMgr;
 import org.aksw.jena_sparql_api.txn.api.TxnResourceApi;
 import org.aksw.jena_sparql_api.utils.IteratorClosable;
 import org.apache.jena.graph.Graph;
@@ -35,7 +35,6 @@ import org.apache.jena.sparql.core.DatasetGraphWrapper;
 import org.apache.jena.sparql.core.GraphView;
 import org.apache.jena.sparql.core.Quad;
 import org.apache.jena.sparql.core.Transactional;
-import org.apache.jena.system.Txn;
 import org.apache.jena.util.iterator.ClosableIterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,7 +51,8 @@ public class DatasetGraphFromTxnMgr
 	protected static final Logger logger = LoggerFactory.getLogger(DatasetGraphFromTxnMgr.class);
 	
 	protected TxnMgr txnMgr;
-	protected ThreadLocal<TxnImpl> txns = ThreadLocal.withInitial(() -> null);
+	protected boolean useJournal;
+	protected ThreadLocal<Txn> txns = ThreadLocal.withInitial(() -> null);
 	
 	
     protected Collection<DatasetGraphIndexPlugin> indexers = Collections.synchronizedSet(new HashSet<>());
@@ -98,16 +98,16 @@ public class DatasetGraphFromTxnMgr
 		return result;
 	}
 	
-	public TxnImpl local() {
+	public Txn local() {
 		return txns.get();
 	}
 
-	public DatasetGraphFromTxnMgr(TxnMgr txnMgr, Collection<DatasetGraphIndexPlugin> indexers) {
-		this(txnMgr, indexers, 100);
+	public DatasetGraphFromTxnMgr(boolean useJournal, TxnMgr txnMgr, Collection<DatasetGraphIndexPlugin> indexers) {
+		this(useJournal, txnMgr, indexers, 100);
 	}
 
-	public DatasetGraphFromTxnMgr(TxnMgr txnMgr, Collection<DatasetGraphIndexPlugin> indexers, long maxCacheSize) {
-		this(txnMgr, indexers, 	CacheBuilder.newBuilder().maximumSize(maxCacheSize));
+	public DatasetGraphFromTxnMgr(boolean useJournal, TxnMgr txnMgr, Collection<DatasetGraphIndexPlugin> indexers, long maxCacheSize) {
+		this(useJournal, txnMgr, indexers, 	CacheBuilder.newBuilder().maximumSize(maxCacheSize));
 	}
 	
 //	public DatasetGraphFromTxnMgr(TxnMgr txnMgr, Collection<DatasetGraphIndexPlugin> indexers, CacheBuilder<?, ?> cacheBuilder) {
@@ -115,8 +115,9 @@ public class DatasetGraphFromTxnMgr
 //	}
 
 	@SuppressWarnings("unchecked")
-	public DatasetGraphFromTxnMgr(TxnMgr txnMgr, Collection<DatasetGraphIndexPlugin> indexers, CacheBuilder<?, ?> cacheBuilder) {
+	public DatasetGraphFromTxnMgr(boolean useJournal, TxnMgr txnMgr, Collection<DatasetGraphIndexPlugin> indexers, CacheBuilder<?, ?> cacheBuilder) {
 		super();
+		this.useJournal = useJournal;
 		this.txnMgr = txnMgr;
 		this.indexers = indexers;
 		this.syncCache = createCache(txnMgr, (CacheBuilder<Array<String>, SyncedDataset>)cacheBuilder);
@@ -138,14 +139,14 @@ public class DatasetGraphFromTxnMgr
 
 	@Override
 	public void begin(ReadWrite readWrite) {
-		TxnImpl txn = txns.get();
+		Txn txn = txns.get();
 		if (txn != null) {
 			throw new RuntimeException("Already in a transaction");
 		}
 
 		boolean isWrite = ReadWrite.WRITE.equals(readWrite);
 		
-		txn = txnMgr.newTxn(isWrite);
+		txn = txnMgr.newTxn(useJournal, isWrite);
 		txns.set(txn);
 	}
 
@@ -453,7 +454,7 @@ public class DatasetGraphFromTxnMgr
 
 			// Get the resource and lock it for writing
 			// The lock is held until the end of the transaction
-			TxnResourceApi api = local().getResourceApi(iri);
+			TxnResourceApi api = local().getResourceApi(key); //iri);
 			api.declareAccess();
 			api.lock(true);
 			
@@ -499,7 +500,7 @@ public class DatasetGraphFromTxnMgr
 
             mutator.run();
         } else {
-        	Txn.executeWrite(txn, () -> {
+        	org.apache.jena.system.Txn.executeWrite(txn, () -> {
                 mutator.run();
             });
         }
@@ -548,7 +549,7 @@ public class DatasetGraphFromTxnMgr
     }
     
     public static <T> T access(Transactional txn, Supplier<T> source) {
-        return txn.isInTransaction() ? source.get() : Txn.calculateRead(txn, source::get);
+        return txn.isInTransaction() ? source.get() : org.apache.jena.system.Txn.calculateRead(txn, source::get);
     }
 
     

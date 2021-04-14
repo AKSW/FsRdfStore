@@ -9,6 +9,8 @@ import org.aksw.common.io.util.symlink.SymbolicLinkStrategy;
 import org.aksw.jena_sparql_api.lock.LockManager;
 import org.aksw.jena_sparql_api.lock.db.api.LockStore;
 import org.aksw.jena_sparql_api.lock.db.impl.LockStoreImpl;
+import org.aksw.jena_sparql_api.txn.api.Txn;
+import org.aksw.jena_sparql_api.txn.api.TxnMgr;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,8 +39,8 @@ import org.slf4j.LoggerFactory;
  * 
  * store/org/example/data.nt
  * 
- * shadow/.org-example-data/data.nt -&gt store/org/example/data.nt
- * shadow/.org-example-data/txn-12345.lock -&gt txns/txn-12345
+ * locks/.org-example-data/data.nt -&gt store/org/example/data.nt
+ * locks/.org-example-data/txn-12345.lock -&gt txns/txn-12345
  *
  *  
  * txns/txn-12345/
@@ -47,8 +49,10 @@ import org.slf4j.LoggerFactory;
  * @author Claus Stadler
  *
  */
-public class TxnMgr {
-	private static final Logger logger = LoggerFactory.getLogger(TxnMgr.class);
+public class TxnMgrImpl
+	implements TxnMgr
+{
+	private static final Logger logger = LoggerFactory.getLogger(TxnMgrImpl.class);
 	
 	protected LockManager<Path> lockMgr;
 	protected Path txnBasePath;
@@ -60,7 +64,7 @@ public class TxnMgr {
 	
 	protected SymbolicLinkStrategy symlinkStrategy;
 
-	public TxnMgr(
+	public TxnMgrImpl(
 			LockManager<Path> lockMgr,
 			Path txnBasePath,
 			ResourceRepository<String> resRepo,
@@ -92,26 +96,34 @@ public class TxnMgr {
 
 
 
+	@Override
 	public ResourceRepository<String> getResRepo() {
 		return resRepo;
 	}
 
-	public TxnImpl newTxn(boolean isWrite) {
-		String txnId = "txn-" + new Random().nextLong();
-
-		Path txnFolder = txnBasePath.resolve(txnId);
-
-		try {
-			Files.createDirectories(txnFolder);
-
-			if (isWrite) {
-				Files.createFile(txnFolder.resolve("write"));
+	public Txn newTxn(boolean useJournal, boolean isWrite) {
+		Txn result;
+		if (!useJournal) {
+			result = null; //new TxnReadUncommitted(txnMgr);
+		} else {
+			String txnId = "txn-" + new Random().nextLong();
+			
+			Path txnFolder = txnBasePath.resolve(txnId);
+	
+			try {
+				Files.createDirectories(txnFolder);
+	
+				if (isWrite) {
+					Files.createFile(txnFolder.resolve("write"));
+				}
+			} catch (IOException e) {
+				throw new RuntimeException("Failed to lock txn folder");
 			}
-		} catch (IOException e) {
-			throw new RuntimeException("Failed to lock txn folder");
+	
+			logger.debug("Allocated txn folder" + txnFolder);
+			result = new TxnImpl(this, txnId, txnFolder);			
 		}
-
-		logger.debug("Allocated txn folder" + txnFolder);
-		return new TxnImpl(this, txnId, txnFolder);
+		
+		return result;
 	}
 }
