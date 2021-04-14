@@ -26,18 +26,15 @@ As such FsRdfStore is not tied to GIT; in fact, FsRdfStore is not tied to versio
 
 ### How does FsRdfStore store differ from QuitStore?
 The fundamental concept of FsRdfStore to enable version control of RDF data by means of partitioning each named graph into a separate file
-is conceptually similar to QuitStore.
+is conceptually similar to QuitStore. However, Quitstore as of 2021-04-14 does not provide any other of FsRdfStore's feattures listed above.
 
-
-The code from [file backed dataset](https://github.com/SmartDataAnalytics/jena-sparql-api/tree/develop/jena-sparql-api-file-backed-dataset) should be refactored into this repository. UPDATE: This has been pretty much done; verify.
-
-
-* Naming: FsRdfStore is not a nice name, maybe something along the lines of dataset in files system (difs), or fbd or fsbd... let's use difs for now.
-
+## Modules
 
 * difs-core: The transactional DatasetGraph implementation with file system based indexing support via symbolic links
 * difs-system: A system built on core that adds RDF-based configuration infrastructure.
 * difs-cli: Command line tooling. E.g. start a fuseki with that dataset or reindex existing data.
+
+* TODO Naming: FsRdfStore is not a nice name, maybe something along the lines of dataset in files system (difs), or fbd or fsbd... let's use difs for now.
 
 ## Differences to conventional triple stores
 
