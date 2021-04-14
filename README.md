@@ -4,14 +4,15 @@ Transactional File-based Respository and SPARQL Engine System. Implementated usi
 ## Motivation
 This work is heavily inspired by Maven's approach to artifact management: Each artifact is addressed by a composite key - called a coordinate - with the essential components being group id, artifact id and version. A simple mapping of Maven coordinates to relative URIs together with a base URL is all that is needed to form an absolute URL from where the artifact's resources can be accessed. In fact, deployment of artifacts is typcially mere WebDAV interactions based on absolute URLs derived from the coordinates.
 
-The main complexity of Semantic Web data is that one has to deal with multiple IDs for the same thing - such as the IRI of a resource itself, its dct:identifier, and possibly those of resources reachable via owl:sameAs links.
+The main complexity of Semantic Web data is that one has to constantly deal with multiple IDs for the same thing - such as the IRI of a resource itself, its dct:identifier, and possibly those of resources reachable via owl:sameAs links.
 
-In order to overcome these complexities, this work introduces:
+In order to overcome these complexities this work introduces:
 * A file-based repository system where IRIs are resolved to paths in the repository similar to Maven's GAV.
 * File-based indexes to support efficient lookup of data by any alternative identifier
 * A read+write SPARQL interface to the repository
 
 Because of the file-based nature, the whole store can be put under version control using e.g. GIT or SVN - which in addition allows for simple replication.
+Files can also be easily exposed with WebDAV. Because of the used virtual file system technology, remote and local querying and updates are possible.
 
 
 ## Features of FsRdfStore
