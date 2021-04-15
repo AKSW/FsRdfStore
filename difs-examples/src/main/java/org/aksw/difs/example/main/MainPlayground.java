@@ -5,7 +5,6 @@ import java.net.URI;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -17,6 +16,7 @@ import org.aksw.difs.index.impl.RdfTermIndexerFactoryIriToFolder;
 import org.aksw.difs.system.domain.StoreDefinition;
 import org.aksw.jena_sparql_api.dataset.file.DatasetGraphIndexerFromFileSystem;
 import org.apache.commons.vfs2.FileSystemOptions;
+import org.apache.commons.vfs2.provider.webdav.WebdavFileSystemConfigBuilder;
 import org.apache.jena.fuseki.main.FusekiServer;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.NodeFactory;
@@ -81,7 +81,7 @@ public class MainPlayground {
 		
 		String vfsUri = "webdav://localhost";
 		FileSystemOptions webDavFsOpts = new FileSystemOptions();
-		// WebdavFileSystemConfigBuilder.getInstance().setFollowRedirect(web, true);
+		WebdavFileSystemConfigBuilder.getInstance().setFollowRedirect(webDavFsOpts, false);
 
 		Map<String, Object> env = new HashMap<>();
 		env.put(Vfs2NioFileSystemProvider.FILE_SYSTEM_OPTIONS, webDavFsOpts);
@@ -122,14 +122,18 @@ public class MainPlayground {
 		}
 
 		if (true) {
-			// ISSUE: By default jena iterates all graphs
-			// Can we do better with quad form algebra?
 			String queryStr =
-					"SELECT * { GRAPH <http://akswnc7.informatik.uni-leipzig.de/dav/dbpedia-lookup/index/2020.09.10/dataid.ttl#Dataset> {"
+					"SELECT * { GRAPH ?g {"
 					+ "  ?s <http://dataid.dbpedia.org/ns/core#group> <https://databus.dbpedia.org/jan/dbpedia-lookup> ."
 					+ "  ?s <http://dataid.dbpedia.org/ns/core#artifact> <https://databus.dbpedia.org/jan/dbpedia-lookup/index> ."
 					+ "  ?s ?p ?o "
 					+ "}}";
+//			String queryStr =
+//					"SELECT * { GRAPH <http://akswnc7.informatik.uni-leipzig.de/dav/dbpedia-lookup/index/2020.09.10/dataid.ttl#Dataset> {"
+//					+ "  ?s <http://dataid.dbpedia.org/ns/core#group> <https://databus.dbpedia.org/jan/dbpedia-lookup> ."
+//					+ "  ?s <http://dataid.dbpedia.org/ns/core#artifact> <https://databus.dbpedia.org/jan/dbpedia-lookup/index> ."
+//					+ "  ?s ?p ?o "
+//					+ "}}";
 			System.out.println(queryStr);
 			
 			// String queryStr = "SELECT * { GRAPH ?g { ?s ?p ?o } } LIMIT 10";

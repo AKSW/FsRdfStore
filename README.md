@@ -45,9 +45,46 @@ is conceptually similar to QuitStore. However, Quitstore as of 2021-04-14 does n
 * The files and folders can be exposed using WebDav allowing clients to perform queries to a remote firebird store
 * Main use case is efficient and flexibile lookup of RDF metadata using identifiers and property values
 
+
+
 ## WebDAV Access
 
-### Apache
+### Java code to setup a Virtual FileSystem
+
+The basic Java code to treat to treat the URL `webdav://localhost/my/webdav/folder` as a virtual folder is shown below:
+```
+public static void main(String[] args) {
+    String vfsUri = "webdav://localhost";
+
+    FileSystem fs = FileSystems.newFileSystem(
+        URI.create("vfs:" + vfsUri), 
+        new HashMap<String, Object>());
+		
+    Path basePath = fs.getRootDirectories().iterator().next()
+        .resolve("my").resolve("webdav").resolve("folder");
+
+```
+
+Unfortunately, because the VFS2 WebDAV client uses the legacy version 3 of apache http client HTTP redirects are not supported.
+One may be inclined to attempt to enable redirects, but unfortunately the the code below raises an exception about redirects not being allowed.
+The workaround is to configure the Web server to avoid redirects (see the section on WebDav publishing).
+
+```
+    String vfsUri = "webdav://localhost";
+
+    FileSystemOptions webDavFsOpts = new FileSystemOptions();
+    // The following option is correctly recognized but not permitted
+    WebdavFileSystemConfigBuilder.getInstance().setFollowRedirect(webDavFsOpts, true);
+
+    Map<String, Object> env = new HashMap<>();
+    env.put(Vfs2NioFileSystemProvider.FILE_SYSTEM_OPTIONS, webDavFsOpts);
+
+    FileSystem fs = FileSystems.newFileSystem(
+        URI.create("vfs:" + vfsUri),
+        env);
+```
+
+### Publishing a folder via WebDAV using Apache
 
 This example assumes the folder to be exposed as webdav exists and is located at `/var/www/webdav`.
 
