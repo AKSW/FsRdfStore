@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Set;
@@ -182,8 +183,13 @@ public class SyncedDataset {
 	public static Instant getTimestamp(Path path) {
 		Instant result = null;
 		try {
-			if (Files.exists(path)) {
-				result = Files.getLastModifiedTime(path).toInstant();
+			if (Files.exists(path)) {								
+				FileTime timestamp = Files.getLastModifiedTime(path);
+				if (timestamp == null) {
+					timestamp = FileTime.fromMillis(0l);
+				}
+				
+				result = timestamp.toInstant();
 			}
 		} catch (IOException e) {
 			throw new RuntimeException(e);

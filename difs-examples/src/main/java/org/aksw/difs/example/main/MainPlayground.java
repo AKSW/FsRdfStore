@@ -1,7 +1,13 @@
 package org.aksw.difs.example.main;
 
 import java.io.IOException;
+import java.net.URI;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.aksw.common.io.util.symlink.SymbolicLinkStrategies;
 import org.aksw.difs.builder.DifsFactory;
@@ -10,6 +16,7 @@ import org.aksw.difs.index.impl.RdfIndexerFactoryLexicalForm;
 import org.aksw.difs.index.impl.RdfTermIndexerFactoryIriToFolder;
 import org.aksw.difs.system.domain.StoreDefinition;
 import org.aksw.jena_sparql_api.dataset.file.DatasetGraphIndexerFromFileSystem;
+import org.apache.commons.vfs2.FileSystemOptions;
 import org.apache.jena.fuseki.main.FusekiServer;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.NodeFactory;
@@ -28,6 +35,8 @@ import org.apache.jena.system.Txn;
 import org.apache.jena.vocabulary.DCAT;
 import org.apache.jena.vocabulary.DCTerms;
 import org.apache.jena.vocabulary.RDF;
+
+import com.sshtools.vfs2nio.Vfs2NioFileSystemProvider;
 
 public class MainPlayground {
 		
@@ -69,6 +78,21 @@ public class MainPlayground {
 	}
 	
 	public static void main(String[] args) throws IOException {
+		
+		String vfsUri = "webdav://localhost";
+		FileSystemOptions webDavFsOpts = new FileSystemOptions();
+		// WebdavFileSystemConfigBuilder.getInstance().setFollowRedirect(web, true);
+
+		Map<String, Object> env = new HashMap<>();
+		env.put(Vfs2NioFileSystemProvider.FILE_SYSTEM_OPTIONS, webDavFsOpts);
+
+		FileSystem fs = FileSystems.newFileSystem(
+				URI.create("vfs:" + vfsUri), 
+				env);
+		
+//		Path basePath = Paths.get("/tmp/gitalog");
+		Path basePath = fs.getRootDirectories().iterator().next().resolve("webdav").resolve("gitalog");
+		
 //		String[] a = new String[] {"a", "b"};
 //		String[] b = new String[] {"a", "b"};
 //
@@ -77,8 +101,9 @@ public class MainPlayground {
 //		System.out.println(Array.wrap(a).equals(Array.wrap(b))); // true
 		
 		DatasetGraph dg = DifsFactory.newInstance()
+				.setUseJournal(false)
 				.setSymbolicLinkStrategy(SymbolicLinkStrategies.FILE)
-				.setPath(Paths.get("/tmp/gitalog"))
+				.setPath(basePath)
 				.addIndex(RDF.Nodes.type, "type", DatasetGraphIndexerFromFileSystem::uriNodeToPath)
 				.addIndex(NodeFactory.createURI("http://dataid.dbpedia.org/ns/core#group"), "group", DatasetGraphIndexerFromFileSystem::uriNodeToPath)
 				.addIndex(NodeFactory.createURI("http://purl.org/dc/terms/hasVersion"), "version", DatasetGraphIndexerFromFileSystem::iriOrLexicalFormToToPath)

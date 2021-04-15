@@ -4,9 +4,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
-import java.nio.file.attribute.BasicFileAttributes;
-import java.nio.file.attribute.FileTime;
-import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
@@ -14,7 +11,6 @@ import java.util.stream.Stream;
 
 import org.aksw.commons.io.util.PathUtils;
 import org.aksw.jena_sparql_api.difs.main.Array;
-import org.aksw.jena_sparql_api.difs.main.IsolationLevel;
 import org.aksw.jena_sparql_api.txn.api.Txn;
 import org.aksw.jena_sparql_api.txn.api.TxnResourceApi;
 import org.slf4j.Logger;
@@ -27,9 +23,9 @@ import com.google.common.cache.LoadingCache;
 public class TxnReadUncommitted
 	implements Txn
 {
-	private static final Logger logger = LoggerFactory.getLogger(TxnSerializable.class);
+//	private static final Logger logger = LoggerFactory.getLogger(TxnReadUncommitted.class);
 	
-	protected boolean isWrite;
+//	protected boolean isWrite;
 	
 	protected TxnMgrImpl txnMgr;
 	protected String txnId;
@@ -46,12 +42,12 @@ public class TxnReadUncommitted
 //	protected transient Path finalizeFile;
 //	protected transient Path rollbackFile;	
 	
-	protected IsolationLevel isolationLevel;
+//	protected IsolationLevel isolationLevel;
 	
 	//protected LockStore<String[], String> lockStore;
 	
 	protected TxnResourceApi createResourceApi(String[] key) {
-		return new TxnResourceApiReadUncommitted(this, key);
+		return new TxnResourceApiReadUncommitted<>(this, key);
 	}
 	
 	protected LoadingCache<Array<String>, TxnResourceApi> containerCache = CacheBuilder.newBuilder()
@@ -129,7 +125,7 @@ public class TxnReadUncommitted
 	
 	@Override
 	public boolean isWrite() {
-		return isWrite;
+		return false;
 	}
 	
 	public void cleanUpTxn() throws IOException {

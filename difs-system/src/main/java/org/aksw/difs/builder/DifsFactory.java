@@ -129,7 +129,7 @@ public class DifsFactory {
 		return this;
 	}
 	
-	public DifsFactory useJournal(boolean useJournal) {
+	public DifsFactory setUseJournal(boolean useJournal) {
 		this.useJournal = useJournal;
 		return this;
 	}
@@ -154,7 +154,7 @@ public class DifsFactory {
 //        DatasetGraphIndexerFromFileSystem::mavenStringToToPath
 				
 		Path indexFolder = repoRootPath.resolve("index").resolve(name);
-		Files.createDirectories(indexFolder);
+		// Files.createDirectories(indexFolder);
 		
 		ResourceRepository<String> resStore = ResourceRepoImpl.createWithUriToPath(repoRootPath.resolve("store"));
 
@@ -185,7 +185,7 @@ public class DifsFactory {
 		// creates default conf files
 		
 		Files.createDirectories(repoRootPath);
-		Path txnStore = Files.createDirectories(repoRootPath.resolve("txns"));
+		Path txnStore = repoRootPath.resolve("txns");
 		
 		LockManager<Path> processLockMgr = new LockManagerPath(repoRootPath);
 		LockManager<Path> threadLockMgr = new ThreadLockManager<>();

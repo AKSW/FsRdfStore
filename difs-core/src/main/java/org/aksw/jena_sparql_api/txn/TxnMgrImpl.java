@@ -102,11 +102,12 @@ public class TxnMgrImpl
 	}
 
 	public Txn newTxn(boolean useJournal, boolean isWrite) {
+		String txnId = "txn-" + new Random().nextLong();
+
 		Txn result;
 		if (!useJournal) {
-			result = null; //new TxnReadUncommitted(txnMgr);
+			result = new TxnReadUncommitted(this, txnId);
 		} else {
-			String txnId = "txn-" + new Random().nextLong();
 			
 			Path txnFolder = txnBasePath.resolve(txnId);
 	
