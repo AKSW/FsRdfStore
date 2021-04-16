@@ -65,8 +65,12 @@
 		<maven.build.timestamp.format>yyyy-MM-dd HH:mm</maven.build.timestamp.format>
 
 		<!-- Project Settings -->
-		<maven.compiler.source>1.8</maven.compiler.source>
-		<maven.compiler.target>1.8</maven.compiler.target>
+		<!-- <maven.compiler.source>1.8</maven.compiler.source> -->
+		<!-- <maven.compiler.target>1.8</maven.compiler.target> -->
+		<maven.compiler.release>11</maven.compiler.release>
+		<!-- <maven.compiler.target>11</maven.compiler.target> -->
+
+
 		<java.version.javadoc>http://java.sun.com/javase/8/docs/api/</java.version.javadoc>
 		<file.encoding>UTF-8</file.encoding>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -77,17 +81,28 @@
 
 	<dependencyManagement>
 		<dependencies>
+<!-- 			<dependency> -->
+<!-- 				<groupId>org.apache.jena</groupId> -->
+<!-- 				<artifactId>jena-fuseki-main</artifactId> -->
+<!-- 				<version>${jena.version}</version> -->
+<!-- 			</dependency> -->
 			<dependency>
-				<groupId>org.apache.jena</groupId>
-				<artifactId>jena-fuseki-main</artifactId>
-				<version>${jena.version}</version>
+				<groupId>org.aksw.jena-sparql-api</groupId>
+				<artifactId>jena-sparql-api-server-standalone</artifactId>
+				<version>${jena-sparql-api.version}</version>
 			</dependency>
 
-			<dependency>
-				<groupId>org.apache.jena</groupId>
-				<artifactId>jena-fuseki-fulljar</artifactId>
-				<version>${jena.version}</version>
-			</dependency>
+<!-- 			<dependency> -->
+<!-- 				<groupId>org.apache.jena</groupId> -->
+<!-- 				<artifactId>jena-fuseki-webapp</artifactId> -->
+<!-- 				<version>${jena.version}</version> -->
+<!-- 			</dependency> -->
+
+			<!-- <dependency> -->
+			<!-- <groupId>org.apache.jena</groupId> -->
+			<!-- <artifactId>jena-fuseki-fulljar</artifactId> -->
+			<!-- <version>${jena.version}</version> -->
+			<!-- </dependency> -->
 
 			<!-- WebDAV connector -->
 			<!-- <dependency> -->
@@ -317,10 +332,11 @@
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-compiler-plugin</artifactId>
-					<version>3.6.0</version>
+					<version>3.8.1</version>
 					<configuration>
-						<source>${maven.compiler.source}</source>
-						<target>${maven.compiler.target}</target>
+						<!-- <source>${maven.compiler.source}</source> -->
+						<!-- <target>${maven.compiler.target}</target> -->
+						<release>${maven.compiler.release}</release>
 						<encoding>${project.build.sourceEncoding}</encoding>
 					</configuration>
 				</plugin>

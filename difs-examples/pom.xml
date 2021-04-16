@@ -15,9 +15,18 @@
 
 	<dependencies>
 		<dependency>
-			<groupId>org.apache.jena</groupId>
-			<artifactId>jena-fuseki-main</artifactId>
+			<groupId>org.aksw.jena-sparql-api</groupId>
+			<artifactId>jena-sparql-api-server-standalone</artifactId>
 		</dependency>
+	
+<!-- 		<dependency> -->
+<!-- 			<groupId>org.apache.jena</groupId> -->
+<!-- 			<artifactId>jena-fuseki-main</artifactId> -->
+<!-- 		</dependency> -->
+<!-- 		<dependency> -->
+<!-- 			<groupId>org.apache.jena</groupId> -->
+<!-- 			<artifactId>jena-fuseki-webapp</artifactId> -->
+<!-- 		</dependency> -->
 
 <!-- 		<dependency> -->
 <!-- 			<groupId>org.apache.jena</groupId> -->

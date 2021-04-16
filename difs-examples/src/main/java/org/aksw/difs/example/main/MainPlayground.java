@@ -10,14 +10,16 @@ import java.util.Map;
 
 import org.aksw.common.io.util.symlink.SymbolicLinkStrategies;
 import org.aksw.difs.builder.DifsFactory;
+import org.aksw.difs.engine.QueryEngineQuadForm;
 import org.aksw.difs.engine.QueryExecutionFactoryQuadForm;
 import org.aksw.difs.index.impl.RdfIndexerFactoryLexicalForm;
 import org.aksw.difs.index.impl.RdfTermIndexerFactoryIriToFolder;
 import org.aksw.difs.system.domain.StoreDefinition;
+import org.aksw.jena_sparql_api.core.QueryExecutionFactoryDataset;
 import org.aksw.jena_sparql_api.dataset.file.DatasetGraphIndexerFromFileSystem;
+import org.aksw.jena_sparql_api.server.utils.FactoryBeanSparqlServer;
 import org.apache.commons.vfs2.FileSystemOptions;
 import org.apache.commons.vfs2.provider.webdav.WebdavFileSystemConfigBuilder;
-import org.apache.jena.fuseki.main.FusekiServer;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.NodeFactory;
 import org.apache.jena.query.Dataset;
@@ -31,10 +33,12 @@ import org.apache.jena.riot.RDFFormat;
 import org.apache.jena.riot.ResultSetMgr;
 import org.apache.jena.riot.resultset.ResultSetLang;
 import org.apache.jena.sparql.core.DatasetGraph;
+import org.apache.jena.sys.JenaSystem;
 import org.apache.jena.system.Txn;
 import org.apache.jena.vocabulary.DCAT;
 import org.apache.jena.vocabulary.DCTerms;
 import org.apache.jena.vocabulary.RDF;
+import org.eclipse.jetty.server.Server;
 
 import com.sshtools.vfs2nio.Vfs2NioFileSystemProvider;
 
@@ -65,19 +69,9 @@ public class MainPlayground {
 		RDFDataMgr.write(System.out, sd.getModel(), RDFFormat.TURTLE_PRETTY);
 	}
 	
-	public static void main5(String[] args) {
-		Dataset ds = DatasetFactory.create();
-		FusekiServer server = FusekiServer.create()
-				.port(3030)
-				.add("/rdf", ds)
-				.build();
-		System.out.println("Starting server");
-		server.start();
-		server.join();
-		System.out.println();
-	}
 	
-	public static void main(String[] args) throws IOException {
+	public static void main(String[] args) throws Exception {
+		JenaSystem.init();
 		
 		String vfsUri = "webdav://localhost";
 //		String vfsUri = "file:///var/www/webdav/gitalog";
@@ -140,9 +134,9 @@ public class MainPlayground {
 //					+ "}}";
 
 //			queryStr = "SELECT DISTINCT ?t { GRAPH ?g { ?s a ?t } }";
+			queryStr = "SELECT * { GRAPH ?g { ?s ?p ?o } } LIMIT 10";
 			System.out.println(queryStr);
 			
-			// String queryStr = "SELECT * { GRAPH ?g { ?s ?p ?o } } LIMIT 10";
 			Query query = QueryFactory.create(queryStr);
 			
 			
@@ -191,7 +185,21 @@ public class MainPlayground {
 			});
 		}
 	
+		Server server = FactoryBeanSparqlServer.newInstance()
+				.setPort(7531)
+				.setSparqlServiceFactory(new QueryExecutionFactoryDataset(d, null, (qu, da, co) -> QueryEngineQuadForm.factory))
+				.create();
 		
+//		FusekiServer server = FusekiServer.create()
+//				.port(3030)
+//				.add("/rdf", d)
+//				.enableCors(true)
+//				.build();
+		System.out.println("Starting server");
+		server.start();
+		server.join();
+		System.out.println();
+
 //		RDFDataMgr.write(System.out, d, RDFFormat.TRIG_PRETTY);
 		
 

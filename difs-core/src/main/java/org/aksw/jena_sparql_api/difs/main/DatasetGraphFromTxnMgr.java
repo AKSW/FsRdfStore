@@ -342,7 +342,11 @@ public class DatasetGraphFromTxnMgr
 	
 	public DatasetGraph mapToDatasetGraph(TxnResourceApi api) {
 		api.declareAccess();
-		api.lock(local().isWrite());
+		Txn txn = local();
+		if (txn != null) {
+			api.lock(txn.isWrite());
+		}
+
 		String[] resourceKey = api.getResourceKey();
 		SyncedDataset entry;
 		try {
