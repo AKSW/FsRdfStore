@@ -38,6 +38,8 @@ import org.apache.jena.query.Dataset;
 import org.apache.jena.query.DatasetFactory;
 import org.apache.jena.query.ReadWrite;
 import org.apache.jena.query.TxnType;
+import org.apache.jena.riot.system.PrefixMap;
+import org.apache.jena.riot.system.PrefixMapFactory;
 import org.apache.jena.sparql.SystemARQ;
 import org.apache.jena.sparql.core.DatasetGraph;
 import org.apache.jena.sparql.core.DatasetGraphCollection;
@@ -52,6 +54,8 @@ import org.apache.jena.sparql.graph.GraphReadOnly;
 public class DatasetGraphFromFileSystem
     extends DatasetGraphCollection
 {
+	protected PrefixMap prefixes = PrefixMapFactory.create();
+	
     protected Path basePath;
     
     /* Matcher for the data files from which to load the RDF data */
@@ -414,5 +418,10 @@ public class DatasetGraphFromFileSystem
 
 
     }
+
+	@Override
+	public PrefixMap prefixes() {
+		return prefixes;
+	}
 
 }

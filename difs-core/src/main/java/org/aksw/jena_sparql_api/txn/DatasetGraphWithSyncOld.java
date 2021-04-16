@@ -1,8 +1,6 @@
 package org.aksw.jena_sparql_api.txn;
 
 import static org.apache.jena.query.ReadWrite.WRITE;
-import static org.apache.jena.system.Txn.calculateRead;
-import static org.apache.jena.system.Txn.executeWrite;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -44,6 +42,7 @@ import org.apache.jena.sparql.core.DatasetGraphWrapper;
 import org.apache.jena.sparql.core.GraphView;
 import org.apache.jena.sparql.core.Quad;
 import org.apache.jena.sparql.core.QuadAction;
+import org.apache.jena.system.Txn;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -325,7 +324,7 @@ public class DatasetGraphWithSyncOld
 
             mutator.accept(payload);
         } else {
-            executeWrite(this, () -> {
+            Txn.executeWrite(this, () -> {
                 version.set(-Math.abs(version.get()));
     //            System.out.println(version.get());
                 mutator.accept(payload);
@@ -374,7 +373,7 @@ public class DatasetGraphWithSyncOld
     { mutate(x -> getW().deleteAny(g, s, p, o), null); }
 
     private <T> T access(final Supplier<T> source) {
-        return isInTransaction() ? source.get() : calculateRead(this, source::get);
+        return isInTransaction() ? source.get() : Txn.calculateRead(this, source::get);
     }
 
     @Override

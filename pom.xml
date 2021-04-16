@@ -56,8 +56,8 @@
 	<properties>
 		<aksw.commons.version>0.9.1-SNAPSHOT</aksw.commons.version>
 
-		<jena.version>3.17.0</jena.version>
-		<jena-sparql-api.subversion>2-SNAPSHOT</jena-sparql-api.subversion>
+		<jena.version>4.0.0</jena.version>
+		<jena-sparql-api.subversion>1-SNAPSHOT</jena-sparql-api.subversion>
 		<jena-sparql-api.version>${jena.version}-${jena-sparql-api.subversion}</jena-sparql-api.version>
 
 
@@ -97,9 +97,9 @@
 			<!-- </dependency> -->
 
 			<dependency>
-				<groupId>com.sshtools</groupId>
+				<groupId>org.aksw.thirdparty.com.sshtools</groupId>
 				<artifactId>vfs2nio</artifactId>
-				<version>0.0.1-SNAPSHOT</version>
+				<version>0.0.1-1</version>
 			</dependency>
 
 			<dependency>

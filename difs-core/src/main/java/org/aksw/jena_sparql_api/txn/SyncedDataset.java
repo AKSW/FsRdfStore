@@ -2,6 +2,7 @@ package org.aksw.jena_sparql_api.txn;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -13,6 +14,7 @@ import java.util.Set;
 import org.aksw.jena_sparql_api.rx.DatasetGraphFactoryEx;
 import org.aksw.jena_sparql_api.utils.SetFromDatasetGraph;
 import org.aksw.jena_sparql_api.utils.model.DatasetGraphDiff;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.jena.riot.Lang;
 import org.apache.jena.riot.RDFDataMgr;
 import org.apache.jena.riot.RDFFormat;
@@ -227,6 +229,9 @@ public class SyncedDataset {
 
 		try (InputStream in = Files.newInputStream(state.getCurrentState().getPath())) {
 			RDFDataMgr.read(originalState, in, Lang.TRIG);
+		} catch (AccessDeniedException ex) {
+			// FIXME The file may not exist but it may also be an authorization issue
+			logger.warn("Access denied: " + ExceptionUtils.getRootCauseMessage(ex));
 		} catch (NoSuchFileException ex) {
 			// Ignore
 		} catch (Exception ex) {

@@ -4,17 +4,13 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
-import java.util.List;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.aksw.commons.io.util.PathUtils;
 import org.aksw.jena_sparql_api.difs.main.Array;
 import org.aksw.jena_sparql_api.txn.api.Txn;
 import org.aksw.jena_sparql_api.txn.api.TxnResourceApi;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -75,24 +71,23 @@ public class TxnReadUncommitted
 		// TODO This pure listing of file resources should probably go to the repository
 		PathMatcher pathMatcher = txnMgr.getResRepo().getRootPath().getFileSystem().getPathMatcher("glob:**/*.trig");
 	
-	    List<TxnResourceApi> result;
-	    try (Stream<Path> tmp = Files.walk(txnMgr.getResRepo().getRootPath())) {
-	    	// TODO Filter out graphs that were created after the transaction start
-	        result = tmp
-		            .filter(pathMatcher::matches)
-		            // We are interested in the folder - not the file itself: Get the parent
-		            .map(Path::getParent)
-		            .map(path -> txnMgr.resRepo.getRootPath().relativize(path))
-		            .map(PathUtils::getPathSegments)
-		            .map(this::getResourceApi)
-		            .filter(TxnResourceApi::isVisible)
-	        		.collect(Collectors.toList());
-	    } catch (IOException e1) {
-	    	throw new RuntimeException(e1);
+		// isVisible filters out graphs that were created after the transaction start
+	    Stream<TxnResourceApi> result;
+		try {
+			result = Files.walk(txnMgr.getResRepo().getRootPath())
+			    .filter(pathMatcher::matches)
+			    // We are interested in the folder - not the file itself: Get the parent
+			    .map(Path::getParent)
+			    .map(path -> txnMgr.resRepo.getRootPath().relativize(path))
+			    .map(PathUtils::getPathSegments)
+			    .map(this::getResourceApi)
+			    .filter(TxnResourceApi::isVisible);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
 		}
 	    // paths.stream().map(path -> )
 	    
-	    return result.stream();
+	    return result;
 	}    
 	
 	

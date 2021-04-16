@@ -28,6 +28,8 @@ import org.apache.jena.graph.Node;
 import org.apache.jena.graph.Triple;
 import org.apache.jena.query.ReadWrite;
 import org.apache.jena.query.TxnType;
+import org.apache.jena.riot.system.PrefixMap;
+import org.apache.jena.riot.system.PrefixMapFactory;
 import org.apache.jena.sparql.JenaTransactionException;
 import org.apache.jena.sparql.core.DatasetGraph;
 import org.apache.jena.sparql.core.DatasetGraphBase;
@@ -57,6 +59,7 @@ public class DatasetGraphFromTxnMgr
 	
     protected Collection<DatasetGraphIndexPlugin> indexers = Collections.synchronizedSet(new HashSet<>());
 
+    protected PrefixMap prefixes = PrefixMapFactory.create();
 	
 //    public static DatasetGraphFromTxnMgr createDefault(Path repoRoot) {
 //        PathMatcher pathMatcher = repoRoot.getFileSystem().getPathMatcher("glob:**/*.trig");
@@ -84,6 +87,8 @@ public class DatasetGraphFromTxnMgr
 			.build(new CacheLoader<Array<String>, SyncedDataset>() {
 				@Override
 				public SyncedDataset load(Array<String> keyArr) throws Exception {
+					logger.info("Loading data at " + keyArr);
+					
 					String[] key = keyArr.getArray();
 					ResourceRepository<String> resRepo = txnMgr.getResRepo();
 					Path rootPath = resRepo.getRootPath();
@@ -668,6 +673,11 @@ public class DatasetGraphFromTxnMgr
 	@Override
 	public Iterator<Quad> findNG(Node g, Node s, Node p, Node o) {
 		return find(g, s, p, o);
+	}
+
+	@Override
+	public PrefixMap prefixes() {
+		return prefixes;
 	}
 	
 }

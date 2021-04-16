@@ -80,6 +80,7 @@ public class MainPlayground {
 	public static void main(String[] args) throws IOException {
 		
 		String vfsUri = "webdav://localhost";
+//		String vfsUri = "file:///var/www/webdav/gitalog";
 		FileSystemOptions webDavFsOpts = new FileSystemOptions();
 		WebdavFileSystemConfigBuilder.getInstance().setFollowRedirect(webDavFsOpts, false);
 
@@ -91,7 +92,9 @@ public class MainPlayground {
 				env);
 		
 //		Path basePath = Paths.get("/tmp/gitalog");
-		Path basePath = fs.getRootDirectories().iterator().next().resolve("webdav").resolve("gitalog");
+		Path basePath = fs.getRootDirectories().iterator().next()
+				// .resolve("var").resolve("www")				
+				.resolve("webdav").resolve("gitalog");
 		
 //		String[] a = new String[] {"a", "b"};
 //		String[] b = new String[] {"a", "b"};
@@ -122,7 +125,8 @@ public class MainPlayground {
 		}
 
 		if (true) {
-			String queryStr =
+			String queryStr;
+			queryStr =
 					"SELECT * { GRAPH ?g {"
 					+ "  ?s <http://dataid.dbpedia.org/ns/core#group> <https://databus.dbpedia.org/jan/dbpedia-lookup> ."
 					+ "  ?s <http://dataid.dbpedia.org/ns/core#artifact> <https://databus.dbpedia.org/jan/dbpedia-lookup/index> ."
@@ -134,6 +138,8 @@ public class MainPlayground {
 //					+ "  ?s <http://dataid.dbpedia.org/ns/core#artifact> <https://databus.dbpedia.org/jan/dbpedia-lookup/index> ."
 //					+ "  ?s ?p ?o "
 //					+ "}}";
+
+//			queryStr = "SELECT DISTINCT ?t { GRAPH ?g { ?s a ?t } }";
 			System.out.println(queryStr);
 			
 			// String queryStr = "SELECT * { GRAPH ?g { ?s ?p ?o } } LIMIT 10";

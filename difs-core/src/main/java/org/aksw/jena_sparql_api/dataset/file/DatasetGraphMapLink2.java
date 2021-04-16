@@ -8,6 +8,7 @@ import org.apache.jena.graph.Graph ;
 import org.apache.jena.graph.Node ;
 import org.apache.jena.query.ReadWrite ;
 import org.apache.jena.query.TxnType;
+import org.apache.jena.riot.system.PrefixMap;
 import org.apache.jena.sparql.SystemARQ ;
 import org.apache.jena.sparql.core.DatasetGraph;
 import org.apache.jena.sparql.core.DatasetGraphCollection;
@@ -183,4 +184,9 @@ public class DatasetGraphMapLink2 extends DatasetGraphCollection
             graph.close();
         super.close();
     }
+
+	@Override
+	public PrefixMap prefixes() {
+		throw new UnsupportedOperationException();
+	}
 }

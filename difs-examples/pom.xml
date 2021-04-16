@@ -30,7 +30,7 @@
 		</dependency>
 
 		<dependency>
-			<groupId>com.sshtools</groupId>
+			<groupId>org.aksw.thirdparty.com.sshtools</groupId>
 			<artifactId>vfs2nio</artifactId>
 		</dependency>
 
