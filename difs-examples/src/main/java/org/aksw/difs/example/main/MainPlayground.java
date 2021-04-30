@@ -97,33 +97,46 @@ public class MainPlayground {
 	
 	public static void main(String[] args) throws Exception {
 		JenaSystem.init();
+				
+		String[] vfsConfWebDav = new String[]{"webdav://localhost", "webdav/gitalog/store.conf.ttl"};
+		String[] vfsConfLocalFs = new String[]{"file:///", "/var/www/webdav/gitalog/store.conf.ttl"};
+		String[] vfsConfZip = new String[]{"zip:///tmp/gitalog/gitalog.zip", "store.conf.ttl"};
 		
-//		String vfsUri = "webdav://localhost";
+
+		boolean useJournal = true;
+		String[] vfsConf = vfsConfLocalFs;
+
+		
 //		String vfsUri = "file:///var/www/webdav/gitalog/store.conf";
-		String vfsUri = "zip:///tmp/gitalog/gitalog.zip";
+//		String vfsUri = "zip:///tmp/gitalog/gitalog.zip";
 		FileSystemOptions webDavFsOpts = new FileSystemOptions();
 		WebdavFileSystemConfigBuilder.getInstance().setFollowRedirect(webDavFsOpts, false);
 
 		Map<String, Object> env = new HashMap<>();
 		env.put(Vfs2NioFileSystemProvider.FILE_SYSTEM_OPTIONS, webDavFsOpts);
 
-		FileSystem fs = FileSystems.newFileSystem(
-				URI.create("vfs:" + vfsUri), 
-				env);
+		String vfsUri = vfsConf[0];		
+		FileSystem fs;
 		
+		if (vfsUri.startsWith("file:")) {
+			fs = Paths.get("/").getFileSystem();
+		} else {
+			fs = FileSystems.newFileSystem(
+					URI.create("vfs:" + vfsUri), 
+					env);
+		}		
 		// zip file
-		Path basePath = fs.getRootDirectories().iterator().next().resolve("store.conf.ttl");
+//		Path basePath = fs.getRootDirectories().iterator().next().resolve("store.conf.ttl");
 //		Path basePath = Paths.get("/tmp/gitalog/store.conf");
 //		Path basePath = fs.getRootDirectories().iterator().next()
 //				 .resolve("var").resolve("www")				
 //				.resolve("webdav").resolve("gitalog");
-		
-//		String[] a = new String[] {"a", "b"};
-//		String[] b = new String[] {"a", "b"};
-//
-//		System.out.println(a.equals(b)); // false
-//		System.out.println(Arrays.asList(a).equals(Arrays.asList(b))); // true
-//		System.out.println(Array.wrap(a).equals(Array.wrap(b))); // true
+
+		Path basePath = fs.getRootDirectories().iterator().next();
+		for (int i = 1; i < vfsConf.length; ++i) {
+			String segment = vfsConf[i];
+			basePath = basePath.resolve(segment);
+		}		
 		
 		StoreDefinition sd = ModelFactory.createDefaultModel().createResource().as(StoreDefinition.class)
 				.setStorePath("store")
@@ -135,7 +148,7 @@ public class MainPlayground {
 
 		DatasetGraph dg = DifsFactory.newInstance()
 				.setStoreDefinition(sd)
-				.setUseJournal(true)
+				.setUseJournal(useJournal)
 				.setSymbolicLinkStrategy(SymbolicLinkStrategies.FILE)
 				.setConfigFile(basePath)
 //				.addIndex(RDF.Nodes.type, "type", DatasetGraphIndexerFromFileSystem::uriNodeToPath)
@@ -161,7 +174,7 @@ public class MainPlayground {
 			});
 		}
 
-		if (false) {
+		if (true) {
 			String queryStr;
 			queryStr =
 					"SELECT * { GRAPH ?g {"
@@ -177,7 +190,7 @@ public class MainPlayground {
 //					+ "}}";
 
 //			queryStr = "SELECT DISTINCT ?t { GRAPH ?g { ?s a ?t } }";
-			queryStr = "SELECT * { GRAPH ?g { ?s ?p ?o } } LIMIT 10";
+			//queryStr = "SELECT * { GRAPH ?g { ?s ?p ?o } } LIMIT 10";
 			System.out.println(queryStr);
 			
 			Query query = QueryFactory.create(queryStr);
@@ -195,7 +208,7 @@ public class MainPlayground {
 			
 			// try (QueryExecution qe = QueryExecutionFactory.create(queryStr, DatasetFactory.wrap(dg))) {
 			
-			if (false) {
+			if (true) {
 				Dataset dataset = DatasetFactory.wrap(dg);
 				Txn.executeRead(dataset, () -> {
 					try (QueryExecution qe = QueryExecutionFactoryQuadForm.create(query, dataset)) {

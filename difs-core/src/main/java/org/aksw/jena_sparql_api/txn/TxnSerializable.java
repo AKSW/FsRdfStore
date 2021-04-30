@@ -3,6 +3,7 @@ package org.aksw.jena_sparql_api.txn;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 import java.time.Instant;
@@ -109,6 +110,12 @@ public class TxnSerializable
 		try {
 		    BasicFileAttributes attr = Files.readAttributes(txnFolder, BasicFileAttributes.class);
 		    FileTime fileTime = attr.creationTime();
+		    
+		    if (fileTime == null) {
+		    	logger.warn("Failed to obtain creation time of " + txnFolder + " falling back to last modified date");
+		    	fileTime = Files.getLastModifiedTime(txnFolder);
+		    }
+		    
 		    return fileTime.toInstant();
 		} catch (IOException e) {
 			throw new RuntimeException(e);
@@ -214,16 +221,19 @@ public class TxnSerializable
 	}
 		
 	public void addCommit() throws IOException {
-		Files.createFile(commitFile);		
+		Files.newOutputStream(commitFile, StandardOpenOption.CREATE).close();
+//		Files.createFile(commitFile);		
 	}
 
 	public void addFinalize() throws IOException {
-		Files.createFile(finalizeFile);		
+		Files.newOutputStream(finalizeFile, StandardOpenOption.CREATE).close();
+//		Files.createFile(finalizeFile);		
 	}
 
 		
 	public void addRollback() throws IOException {
-		Files.createFile(rollbackFile);		
+		Files.newOutputStream(rollbackFile, StandardOpenOption.CREATE).close();
+		//Files.createFile(rollbackFile);		
 	}
 	
 	public boolean isFinalize() throws IOException {

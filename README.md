@@ -1,6 +1,34 @@
 # FsRdfStore
 Transactional File-based Respository and SPARQL Engine System. Implementated using Jena's DatasetGraph interface.
 
+
+## TL;DR: Creating a Dataset Instance
+
+```java
+
+// The file that holds the store definition
+// Will be created from the definition below if it does not exist
+Path configFile = Paths.get("/tmp/store.conf.ttl");
+
+// Create a definition for the store; adapt to your needs
+StoreDefinition sd = ModelFactory.createDefaultModel().createResource().as(StoreDefinition.class)
+		.setStorePath("store") // Optional
+		.setIndexPath("index") // Optional
+		.addIndex("http://dataid.dbpedia.org/ns/core#group", "group", RdfTermIndexerFactoryIriToFolder.class)
+		.addIndex("http://purl.org/dc/terms/hasVersion", "version", RdfIndexerFactoryLexicalForm.class)
+		.addIndex(DCAT.downloadURL.asNode(), "downloadUrl", RdfTermIndexerFactoryIriToFolder.class)
+		.addIndex(DCTerms.identifier.asNode(), "identifier", RdfIndexerFactoryLexicalForm.class);
+
+// Create the Dataset; if the configFile
+DatasetGraph dg = DifsFactory.newInstance()
+		.setStoreDefinition(sd)
+		.setUseJournal(useJournal) // false for read only access; true for write access
+		.setSymbolicLinkStrategy(SymbolicLinkStrategies.FILE)
+		.setConfigFile(basePath)
+		.connect();
+Dataset d = DatasetFactory.wrap(dg);
+```
+
 ## Motivation
 This work is heavily inspired by Maven's approach to artifact management: Each artifact is addressed by a composite key - called a coordinate - with the essential components being group id, artifact id and version. A simple mapping of Maven coordinates to relative URIs together with a base URL is all that is needed to form an absolute URL from where the artifact's resources can be accessed. In fact, deployment of artifacts is typcially mere WebDAV interactions based on absolute URLs derived from the coordinates.
 

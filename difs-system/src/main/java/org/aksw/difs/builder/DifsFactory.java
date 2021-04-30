@@ -222,7 +222,7 @@ public class DifsFactory {
 		if (createIfNotExists) {
 			Files.createDirectories(repoRootPath);
 		}
-		
+
 		StoreDefinition effStoreDef;
 		if (!Files.exists(configFile)) {
 			if (storeDefinition == null) {
@@ -236,8 +236,12 @@ public class DifsFactory {
 			
 			effStoreDef = storeDefinition;
 		} else {
+//			if (Files.isDirectory(configFile)) {
+//				configFile = configFile.resolve("store.conf.ttl");
+//			}
+			
 			// Read the config
-			effStoreDef = loadStoreDefinition(configFile);			
+			effStoreDef = loadStoreDefinition(configFile);
 		}
 		
 		

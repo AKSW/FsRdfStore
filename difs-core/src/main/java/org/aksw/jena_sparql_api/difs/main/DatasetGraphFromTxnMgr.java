@@ -225,11 +225,16 @@ public class DatasetGraphFromTxnMgr
 			try {
 				local().addRollback();
 			} catch (Exception e2) {
-				applyJournal();
+				e2.addSuppressed(e);
 				throw new RuntimeException(e2);
 			}
-			
-			applyJournal();
+
+			try {
+				applyJournal();
+			} catch (Exception e2) {
+				e2.addSuppressed(e);
+				throw new RuntimeException(e2);
+			}
 			
 			throw new RuntimeException(e);
 		}

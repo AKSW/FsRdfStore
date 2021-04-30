@@ -1,5 +1,6 @@
 package org.aksw.jena_sparql_api.lock.db.impl;
 
+import java.nio.file.AccessDeniedException;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
@@ -107,6 +108,9 @@ public class LockFromLink
 			Path target = linkStrategy.readSymbolicLink(path);
 			result = targetToOwnerKey.apply(target);
 		} catch (NoSuchFileException e) {
+			result = null;
+		} catch (AccessDeniedException e) {
+			// FIXME vfs2nio raises this exception when NoSuchFileException would be more approprate
 			result = null;
 		} catch (Exception e) {
 			throw new RuntimeException(e);

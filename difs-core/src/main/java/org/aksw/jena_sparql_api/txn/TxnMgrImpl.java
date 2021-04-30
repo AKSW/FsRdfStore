@@ -118,7 +118,7 @@ public class TxnMgrImpl
 					Files.createFile(txnFolder.resolve("write"));
 				}
 			} catch (IOException e) {
-				throw new RuntimeException("Failed to lock txn folder");
+				throw new RuntimeException("Failed to lock txn folder; set useJournal=false if read only access with 'read uncommitted' isolation level is intended");
 			}
 	
 			logger.debug("Allocated txn folder" + txnFolder);
