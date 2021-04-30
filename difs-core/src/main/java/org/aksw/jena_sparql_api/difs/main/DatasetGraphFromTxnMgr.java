@@ -340,12 +340,13 @@ public class DatasetGraphFromTxnMgr
 	}
 
 	
-	public DatasetGraph mapToDatasetGraph(TxnResourceApi api) {
+	public DatasetGraph mapToDatasetGraph(Txn local, TxnResourceApi api) {
 		api.declareAccess();
-		Txn txn = local();
-		if (txn != null) {
-			api.lock(txn.isWrite());
-		}
+		api.lock(local.isWrite());
+//		Txn txn = local();
+//		if (txn != null) {
+//			api.lock(txn.isWrite());
+//		}
 
 		String[] resourceKey = api.getResourceKey();
 		SyncedDataset entry;
@@ -360,9 +361,10 @@ public class DatasetGraphFromTxnMgr
 	@Override
 	public Iterator<Node> listGraphNodes() {
 		Iterator<Node> result = access(this, () -> {
+			Txn local = local();
 			try (Stream<TxnResourceApi> stream = local().listVisibleFiles()) {
 				return stream
-					.map(this::mapToDatasetGraph)
+					.map(api -> mapToDatasetGraph(local, api))
 					.collect(Collectors.toList()).stream() // FIXME only collect if not in a txn
 		        	.flatMap(dataset -> {
 		        		return Streams.stream(dataset.listGraphNodes());
@@ -595,40 +597,45 @@ public class DatasetGraphFromTxnMgr
 //        return iter ;
 
     
-    protected Stream<Quad> findInSpecificNamedGraph(Node g, Node s, Node p , Node o) {
+    protected Stream<Quad> findInSpecificNamedGraph(Txn local, Node g, Node s, Node p , Node o) {
     	logger.debug("Find in specific named graph: " + new Quad(g, s, p, o));
     	String res = g.getURI();
     	String[] relPath = txnMgr.getResRepo().getPathSegments(res);
 
+    	return Stream.of(local.getResourceApi(relPath))
+            	.filter(TxnResourceApi::isVisible)
+    			.map(api -> mapToDatasetGraph(local, api))
+    				// .collect(Collectors.toList()).stream() // FIXME only collect if not in a txn
+    			.flatMap(dg -> Streams.stream(dg.find(Node.ANY, s, p, o)));
     	
-    	return access(this, () -> Stream.of(local().getResourceApi(relPath))
-        	.filter(TxnResourceApi::isVisible)
-			.map(this::mapToDatasetGraph)
-				// .collect(Collectors.toList()).stream() // FIXME only collect if not in a txn
-			.flatMap(dg -> Streams.stream(dg.find(Node.ANY, s, p, o))));
+//    	return access(this, () -> Stream.of(local().getResourceApi(relPath))
+//        	.filter(TxnResourceApi::isVisible)
+//			.map(this::mapToDatasetGraph)
+//				// .collect(Collectors.toList()).stream() // FIXME only collect if not in a txn
+//			.flatMap(dg -> Streams.stream(dg.find(Node.ANY, s, p, o))));
     }
 
     
-    public Stream<TxnResourceApi> findResources(Node s, Node p, Node o) {
+    public Stream<TxnResourceApi> findResources(Txn local, Node s, Node p, Node o) {
         DatasetGraphIndexPlugin bestPlugin = DatasetGraphFromFileSystem.findBestMatch(
         		indexers.iterator(),
         		plugin -> plugin.evaluateFind(s, p, o), (lhs, rhs) -> lhs != null && lhs < rhs);
 
 		Stream<TxnResourceApi> visibleMatchingResources = bestPlugin != null
 				? bestPlugin.listGraphNodes(this, s, p, o)
-		            .map(relPath -> local().getResourceApi(relPath))
+		            .map(relPath -> local.getResourceApi(relPath))
 		            .filter(TxnResourceApi::isVisible)
 		        : local().listVisibleFiles();
 
 		return visibleMatchingResources;
     }
 
-	public Stream<Quad> findInAnyNamedGraphsCore(Node s, Node p, Node o) {
+	public Stream<Quad> findInAnyNamedGraphsCore(Txn local, Node s, Node p, Node o) {
 		// findResources(s, p, o)
 		return
-			findResources(s, p, o)
+			findResources(local, s, p, o)
 				.map(resourceTxnApi -> {
-					DatasetGraph r = mapToDatasetGraph(resourceTxnApi);
+					DatasetGraph r = mapToDatasetGraph(local, resourceTxnApi);
 					return r;
 				})
 				// .collect(Collectors.toList()).stream() // FIXME only collect if not in a txn
@@ -639,11 +646,13 @@ public class DatasetGraphFromTxnMgr
 
     
 
-	public Stream<Quad> findInAnyNamedGraphs(Node s, Node p, Node o) {
+	public Stream<Quad> findInAnyNamedGraphs(Txn local, Node s, Node p, Node o) {
     	logger.debug("Find in any named graph: " + new Triple(s, p, o));
 
 		// TODO Link the stream to the txn so at latest upon ending the txn the resource can be freed
-		return access(this, () -> findInAnyNamedGraphsCore(s, p, o));
+		// return access(this, () -> findInAnyNamedGraphsCore(s, p, o));
+    	
+    	return findInAnyNamedGraphsCore(local, s, p, o);
 				// return stream.collect(Collectors.toList()).iterator();
 	}
 
@@ -653,13 +662,17 @@ public class DatasetGraphFromTxnMgr
 	
 	@Override
 	public Iterator<Quad> find(Node g, Node s, Node p, Node o) {
-		Stream<Quad> stream = g == null || Node.ANY.equals(g)
-			? findInAnyNamedGraphs(s, p, o)
-			: findInSpecificNamedGraph(g, s, p, o);
-		
-		
-		Iterator<Quad> result = streamToClosableIterator(stream);
-		return result;
+
+		return access(this, () -> {
+			Txn local = local();
+			Stream<Quad> stream = g == null || Node.ANY.equals(g)
+				? findInAnyNamedGraphs(local, s, p, o)
+				: findInSpecificNamedGraph(local, g, s, p, o);
+			
+			
+			Iterator<Quad> r = streamToClosableIterator(stream);
+			return r;
+		});
 //    	return Txn.calculateRead(this, () -> local().listVisibleFiles().flatMap(api -> {
 //		Path path = api.getResFilePath();
 //		SyncedDataset entry;

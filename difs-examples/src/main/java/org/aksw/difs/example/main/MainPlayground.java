@@ -5,6 +5,7 @@ import java.net.URI;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -12,11 +13,15 @@ import org.aksw.common.io.util.symlink.SymbolicLinkStrategies;
 import org.aksw.difs.builder.DifsFactory;
 import org.aksw.difs.engine.QueryEngineQuadForm;
 import org.aksw.difs.engine.QueryExecutionFactoryQuadForm;
+import org.aksw.difs.engine.UpdateProcessorFactoryQuadForm;
 import org.aksw.difs.index.impl.RdfIndexerFactoryLexicalForm;
 import org.aksw.difs.index.impl.RdfTermIndexerFactoryIriToFolder;
 import org.aksw.difs.system.domain.StoreDefinition;
 import org.aksw.jena_sparql_api.core.QueryExecutionFactoryDataset;
-import org.aksw.jena_sparql_api.dataset.file.DatasetGraphIndexerFromFileSystem;
+import org.aksw.jena_sparql_api.core.SparqlService;
+import org.aksw.jena_sparql_api.core.SparqlServiceFactory;
+import org.aksw.jena_sparql_api.core.SparqlServiceImpl;
+import org.aksw.jena_sparql_api.core.UpdateExecutionFactoryDataset;
 import org.aksw.jena_sparql_api.server.utils.FactoryBeanSparqlServer;
 import org.apache.commons.vfs2.FileSystemOptions;
 import org.apache.commons.vfs2.provider.webdav.WebdavFileSystemConfigBuilder;
@@ -27,9 +32,12 @@ import org.apache.jena.query.DatasetFactory;
 import org.apache.jena.query.Query;
 import org.apache.jena.query.QueryExecution;
 import org.apache.jena.query.QueryFactory;
+import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.ModelFactory;
 import org.apache.jena.riot.RDFDataMgr;
 import org.apache.jena.riot.RDFFormat;
+import org.apache.jena.riot.RDFWriter;
+import org.apache.jena.riot.RIOT;
 import org.apache.jena.riot.ResultSetMgr;
 import org.apache.jena.riot.resultset.ResultSetLang;
 import org.apache.jena.sparql.core.DatasetGraph;
@@ -44,10 +52,27 @@ import com.sshtools.vfs2nio.Vfs2NioFileSystemProvider;
 
 public class MainPlayground {
 		
-	public static void main3(String[] args) throws IOException {
+	public static void mainTestNoBase(String[] args) throws Exception {
+		Model model = ModelFactory.createDefaultModel();
+		model.add(RDF.type, RDF.type, RDF.Property);
+		
+		RDFWriter writer = RDFWriter.create()
+				.format(RDFFormat.TURTLE_PRETTY)
+				.base(RDF.uri)
+				.set(RIOT.symTurtleOmitBase, true)
+				.source(model)
+				.build();
+		
+		writer.output(System.out);
+		
+		// Output: <#type>  a      <#Property> .
+	}
+	
+	public static void main3(String[] args) throws IOException {		
+		
 		DatasetGraph dg = DifsFactory.newInstance()
 				.setSymbolicLinkStrategy(SymbolicLinkStrategies.FILE)
-				.loadFromRdf("/home/raven/Datasets/gitalog/store.conf.ttl")
+				.setConfigFile(Paths.get("/home/raven/Datasets/gitalog/store.conf.ttl"))
 				.connect();
 			
 //		dg.find(Node.ANY, Node.ANY, DCTerms.identifier.asNode(), NodeFactory.createLiteral("38a99f0e49b70f41d3774ed3127e06de01dc766f"))
@@ -73,8 +98,9 @@ public class MainPlayground {
 	public static void main(String[] args) throws Exception {
 		JenaSystem.init();
 		
-		String vfsUri = "webdav://localhost";
-//		String vfsUri = "file:///var/www/webdav/gitalog";
+//		String vfsUri = "webdav://localhost";
+//		String vfsUri = "file:///var/www/webdav/gitalog/store.conf";
+		String vfsUri = "zip:///tmp/gitalog/gitalog.zip";
 		FileSystemOptions webDavFsOpts = new FileSystemOptions();
 		WebdavFileSystemConfigBuilder.getInstance().setFollowRedirect(webDavFsOpts, false);
 
@@ -85,10 +111,12 @@ public class MainPlayground {
 				URI.create("vfs:" + vfsUri), 
 				env);
 		
-//		Path basePath = Paths.get("/tmp/gitalog");
-		Path basePath = fs.getRootDirectories().iterator().next()
-				// .resolve("var").resolve("www")				
-				.resolve("webdav").resolve("gitalog");
+		// zip file
+		Path basePath = fs.getRootDirectories().iterator().next().resolve("store.conf.ttl");
+//		Path basePath = Paths.get("/tmp/gitalog/store.conf");
+//		Path basePath = fs.getRootDirectories().iterator().next()
+//				 .resolve("var").resolve("www")				
+//				.resolve("webdav").resolve("gitalog");
 		
 //		String[] a = new String[] {"a", "b"};
 //		String[] b = new String[] {"a", "b"};
@@ -97,18 +125,33 @@ public class MainPlayground {
 //		System.out.println(Arrays.asList(a).equals(Arrays.asList(b))); // true
 //		System.out.println(Array.wrap(a).equals(Array.wrap(b))); // true
 		
+		StoreDefinition sd = ModelFactory.createDefaultModel().createResource().as(StoreDefinition.class)
+				.setStorePath("store")
+				.setIndexPath("index")
+				.addIndex("http://dataid.dbpedia.org/ns/core#group", "group", RdfTermIndexerFactoryIriToFolder.class)
+				.addIndex("http://purl.org/dc/terms/hasVersion", "version", RdfIndexerFactoryLexicalForm.class)
+				.addIndex(DCAT.downloadURL.asNode(), "downloadUrl", RdfTermIndexerFactoryIriToFolder.class)
+				.addIndex(DCTerms.identifier.asNode(), "identifier", RdfIndexerFactoryLexicalForm.class);
+
 		DatasetGraph dg = DifsFactory.newInstance()
-				.setUseJournal(false)
+				.setStoreDefinition(sd)
+				.setUseJournal(true)
 				.setSymbolicLinkStrategy(SymbolicLinkStrategies.FILE)
-				.setPath(basePath)
-				.addIndex(RDF.Nodes.type, "type", DatasetGraphIndexerFromFileSystem::uriNodeToPath)
-				.addIndex(NodeFactory.createURI("http://dataid.dbpedia.org/ns/core#group"), "group", DatasetGraphIndexerFromFileSystem::uriNodeToPath)
-				.addIndex(NodeFactory.createURI("http://purl.org/dc/terms/hasVersion"), "version", DatasetGraphIndexerFromFileSystem::iriOrLexicalFormToToPath)
-				.addIndex(DCAT.downloadURL.asNode(), "downloadUrl", DatasetGraphIndexerFromFileSystem::uriNodeToPath)
-				// .addIndex(RDF.Nodes.type, "type", DatasetGraphIndexerFromFileSystem::uriNodeToPath)
-				.addIndex(DCTerms.identifier.asNode(), "identifier", DatasetGraphIndexerFromFileSystem::iriOrLexicalFormToToPath)
+				.setConfigFile(basePath)
+//				.addIndex(RDF.Nodes.type, "type", DatasetGraphIndexerFromFileSystem::uriNodeToPath)
+//				.addIndex(NodeFactory.createURI("http://dataid.dbpedia.org/ns/core#group"), "group", DatasetGraphIndexerFromFileSystem::uriNodeToPath)
+//				.addIndex(NodeFactory.createURI("http://purl.org/dc/terms/hasVersion"), "version", DatasetGraphIndexerFromFileSystem::iriOrLexicalFormToToPath)
+//				.addIndex(DCAT.downloadURL.asNode(), "downloadUrl", DatasetGraphIndexerFromFileSystem::uriNodeToPath)
+//				// .addIndex(RDF.Nodes.type, "type", DatasetGraphIndexerFromFileSystem::uriNodeToPath)
+//				.addIndex(DCTerms.identifier.asNode(), "identifier", DatasetGraphIndexerFromFileSystem::iriOrLexicalFormToToPath)
 				.connect();
 		Dataset d = DatasetFactory.wrap(dg);
+
+		if (false) {
+			Txn.executeWrite(d, () -> {
+				d.asDatasetGraph().delete(RDF.Nodes.first, RDF.Nodes.first, RDF.Nodes.type, RDF.Nodes.Property);
+			});
+		}
 
 		if (false) {
 			Txn.executeWrite(d, () -> {
@@ -118,7 +161,7 @@ public class MainPlayground {
 			});
 		}
 
-		if (true) {
+		if (false) {
 			String queryStr;
 			queryStr =
 					"SELECT * { GRAPH ?g {"
@@ -151,12 +194,15 @@ public class MainPlayground {
 			
 			
 			// try (QueryExecution qe = QueryExecutionFactory.create(queryStr, DatasetFactory.wrap(dg))) {
-			Dataset dataset = DatasetFactory.wrap(dg);
-			Txn.executeRead(dataset, () -> {
-				try (QueryExecution qe = QueryExecutionFactoryQuadForm.create(query, dataset)) {
-					ResultSetMgr.write(System.out, qe.execSelect(), ResultSetLang.SPARQLResultSetText);
-				}
-			});			
+			
+			if (false) {
+				Dataset dataset = DatasetFactory.wrap(dg);
+				Txn.executeRead(dataset, () -> {
+					try (QueryExecution qe = QueryExecutionFactoryQuadForm.create(query, dataset)) {
+						ResultSetMgr.write(System.out, qe.execSelect(), ResultSetLang.RS_Text);
+					}
+				});			
+			}
 			
 			Node p = NodeFactory.createURI("http://dataid.dbpedia.org/ns/core#group");
 			Node o = NodeFactory.createURI("https://databus.dbpedia.org/jan/dbpedia-lookup");
@@ -171,11 +217,6 @@ public class MainPlayground {
 //			dg.find(Node.ANY, Node.ANY, p, o)
 //				.forEachRemaining(x -> System.out.println("Found: " + x));
 		}
-		if (false) {
-			Txn.executeWrite(d, () -> {
-				d.asDatasetGraph().delete(RDF.Nodes.first, RDF.Nodes.first, RDF.Nodes.type, RDF.Nodes.Property);
-			});
-		}
 //
 
 		if (false) {
@@ -184,10 +225,17 @@ public class MainPlayground {
 //				d.asDatasetGraph().add(RDF.Nodes.first, RDF.Nodes.first, RDF.Nodes.type, RDF.Nodes.Property);
 			});
 		}
+		
+		
+		SparqlService ss = new SparqlServiceImpl(
+				new QueryExecutionFactoryDataset(d, null, (qu, da, co) -> QueryEngineQuadForm.factory),
+				new UpdateExecutionFactoryDataset(d, null, UpdateProcessorFactoryQuadForm::create));
 	
+		SparqlServiceFactory ssf = (uri, dd, httpClient) -> ss;
+		
 		Server server = FactoryBeanSparqlServer.newInstance()
 				.setPort(7531)
-				.setSparqlServiceFactory(new QueryExecutionFactoryDataset(d, null, (qu, da, co) -> QueryEngineQuadForm.factory))
+				.setSparqlServiceFactory(ssf)
 				.create();
 		
 //		FusekiServer server = FusekiServer.create()
