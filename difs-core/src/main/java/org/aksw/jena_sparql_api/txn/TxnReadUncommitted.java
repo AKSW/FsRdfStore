@@ -4,12 +4,14 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
+import java.time.Instant;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Stream;
 
 import org.aksw.commons.io.util.PathUtils;
-import org.aksw.jena_sparql_api.difs.main.Array;
+import org.aksw.commons.util.array.Array;
 import org.aksw.jena_sparql_api.txn.api.Txn;
+import org.aksw.jena_sparql_api.txn.api.TxnMgr;
 import org.aksw.jena_sparql_api.txn.api.TxnResourceApi;
 
 import com.google.common.cache.CacheBuilder;
@@ -45,6 +47,12 @@ public class TxnReadUncommitted
 	protected TxnResourceApi createResourceApi(String[] key) {
 		return new TxnResourceApiReadUncommitted<>(this, key);
 	}
+
+	@Override
+	public String getId() {
+		return txnId;
+	}
+
 	
 	protected LoadingCache<Array<String>, TxnResourceApi> containerCache = CacheBuilder.newBuilder()
 			.maximumSize(1000)
@@ -62,6 +70,11 @@ public class TxnReadUncommitted
 		super();
 		this.txnMgr = txnMgr;
 		this.txnId = txnId;
+	}
+	
+	@Override
+	public TxnMgr getTxnMgr() {
+		return txnMgr;
 	}
 	
 	
@@ -90,6 +103,11 @@ public class TxnReadUncommitted
 	    return result;
 	}    
 	
+	@Override
+	public Instant getCreationDate() {
+		// TODO Auto-generated method stub
+		return null;
+	}
 	
 //	public Instant getCreationInstant() {
 //		try {
@@ -150,5 +168,23 @@ public class TxnReadUncommitted
 	@Override
 	public Stream<String[]> streamAccessedResourcePaths() throws IOException {
 		return Stream.empty();
+	}
+	
+	@Override
+	public void setActivityDate(Instant instant) throws IOException {
+	}
+
+	@Override
+	public Instant getActivityDate() throws IOException {
+		return null;
+	}
+
+	@Override
+	public boolean isStale() {
+		return false;
+	}
+
+	@Override
+	public void claim() {
 	}
 }

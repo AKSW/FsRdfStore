@@ -1,13 +1,21 @@
 package org.aksw.difs.example.main;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.URI;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import org.aksw.common.io.util.symlink.SymbolicLinkStrategies;
 import org.aksw.difs.builder.DifsFactory;
@@ -22,9 +30,17 @@ import org.aksw.jena_sparql_api.core.SparqlService;
 import org.aksw.jena_sparql_api.core.SparqlServiceFactory;
 import org.aksw.jena_sparql_api.core.SparqlServiceImpl;
 import org.aksw.jena_sparql_api.core.UpdateExecutionFactoryDataset;
+import org.aksw.jena_sparql_api.io.binseach.BinarySearcher;
+import org.aksw.jena_sparql_api.io.binseach.BlockSources;
 import org.aksw.jena_sparql_api.server.utils.FactoryBeanSparqlServer;
+import org.apache.commons.lang3.time.StopWatch;
+import org.apache.commons.vfs2.FileObject;
+import org.apache.commons.vfs2.FileSystemManager;
 import org.apache.commons.vfs2.FileSystemOptions;
+import org.apache.commons.vfs2.RandomAccessContent;
+import org.apache.commons.vfs2.VFS;
 import org.apache.commons.vfs2.provider.webdav.WebdavFileSystemConfigBuilder;
+import org.apache.commons.vfs2.util.RandomAccessMode;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.NodeFactory;
 import org.apache.jena.query.Dataset;
@@ -51,7 +67,11 @@ import org.eclipse.jetty.server.Server;
 import com.sshtools.vfs2nio.Vfs2NioFileSystemProvider;
 
 public class MainPlayground {
-		
+
+	public static void main(String[] args) throws Exception {
+		mainVfsHttpTest(args);
+	}
+
 	public static void mainTestNoBase(String[] args) throws Exception {
 		Model model = ModelFactory.createDefaultModel();
 		model.add(RDF.type, RDF.type, RDF.Property);
@@ -66,6 +86,26 @@ public class MainPlayground {
 		writer.output(System.out);
 		
 		// Output: <#type>  a      <#Property> .
+	}
+	
+	
+	public static void mainBinSearch(String[] args) throws Exception {
+
+		FileSystem fs = FileSystems.newFileSystem(
+				URI.create("vfs:" + "http://localhost/"), 
+				null);
+//
+//		// fs.getRootDirectories().iterator().next().resolve("aksw.org/robots.txt");
+		Path path = fs.getRootDirectories().iterator().next()
+				.resolve("webdav/dnb-all_lds_20200213.sorted.nt.bz2");
+
+//		Path path = Paths.get(new URI("vfs:" + "http://localhost/webdav/dnb-all_lds_20200213.sorted.nt.bz2"));
+		
+		System.out.println(path.toUri());
+		try (BinarySearcher bs = BlockSources.createBinarySearcherBz2(path, 32 * 1024)) {
+			InputStream in = bs.search("<https://d-nb.info/1000000028>");
+			new BufferedReader(new InputStreamReader(in)).lines().forEach(System.out::println);
+		}
 	}
 	
 	public static void main3(String[] args) throws IOException {		
@@ -95,7 +135,58 @@ public class MainPlayground {
 	}
 	
 	
-	public static void main(String[] args) throws Exception {
+	public static void mainVfsHttpTest(String[] args) throws Exception {
+		//String url = "https://aksw.org/robots.txt";
+		
+		String url = "http://localhost/webdav/dnb-all_lds_20200213.sorted.nt.bz2";
+		FileSystemManager fsManager = VFS.getManager();
+		
+		try (FileObject file = fsManager.resolveFile(url)) {		
+			try (RandomAccessContent r = file.getContent().getRandomAccessContent(RandomAccessMode.READ)) {
+				
+				StopWatch sw1 = StopWatch.createStarted();
+				r.seek(20);
+				System.out.println("Initial seek: " + sw1.getTime(TimeUnit.MILLISECONDS));
+
+				StopWatch sw2 = StopWatch.createStarted();
+				byte[] bytes = new byte[100];
+				r.readFully(bytes);
+				System.out.println("Read: " + sw2.getTime(TimeUnit.MILLISECONDS));
+				// System.out.println(new String(bytes));
+				
+				StopWatch sw3 = StopWatch.createStarted();
+				r.seek(100);
+				System.out.println("Subsequent seek: " + sw3.getTime(TimeUnit.MILLISECONDS));
+			}
+		}
+		System.out.println("Done");
+	}
+
+	public static void mainFileChannelHttp(String[] args) throws Exception {
+		FileSystem fs = FileSystems.newFileSystem(
+				URI.create("vfs:" + "http://aksw.org"), 
+				null);
+
+		// fs.getRootDirectories().iterator().next().resolve("aksw.org/robots.txt");
+		Path path = fs.getRootDirectories().iterator().next()
+				.resolve("robots.txt");
+		
+		try (FileChannel fc = FileChannel.open(path, StandardOpenOption.READ)) {
+			fc.position(20);
+			byte[] bytes = new byte[100];
+			fc.read(ByteBuffer.wrap(bytes));
+			System.out.println(new String(bytes));			
+		}
+		
+		try (InputStream in = Files.newInputStream(path)) {
+			byte[] bytes = new byte[100];
+			in.read(bytes);
+			System.out.println(new String(bytes));			
+		}
+	}
+
+	
+	public static void mainX(String[] args) throws Exception {
 		JenaSystem.init();
 				
 		String[] vfsConfWebDav = new String[]{"webdav://localhost", "webdav/gitalog/store.conf.ttl"};

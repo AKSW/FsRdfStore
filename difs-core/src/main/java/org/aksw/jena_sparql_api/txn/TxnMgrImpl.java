@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Random;
+import java.util.stream.Stream;
 
 import org.aksw.common.io.util.symlink.SymbolicLinkStrategy;
 import org.aksw.jena_sparql_api.lock.LockManager;
@@ -13,6 +14,8 @@ import org.aksw.jena_sparql_api.txn.api.Txn;
 import org.aksw.jena_sparql_api.txn.api.TxnMgr;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.io.MoreFiles;
 
 
 /**
@@ -80,6 +83,12 @@ public class TxnMgrImpl
 		lockStore = new LockStoreImpl(symlinkStrategy, lockRepo, resRepo, txnId -> txnBasePath.resolve(txnId));
 	}
 	
+	
+	@Override
+	public LockStore<String[], String> getLockStore() {
+		return lockStore;
+	}
+
 	/**
 	 * Build a bipartite graph between dependencies and locks; i.e.
 	 * 
@@ -100,9 +109,18 @@ public class TxnMgrImpl
 	public ResourceRepository<String> getResRepo() {
 		return resRepo;
 	}
+	
+	@Override
+	public Txn getTxn(String txnId) {
+		Path txnFolder = txnBasePath.resolve(txnId);
+		Txn result = new TxnSerializable(this, txnId, txnFolder);			
 
-	public Txn newTxn(boolean useJournal, boolean isWrite) {
-		String txnId = "txn-" + new Random().nextLong();
+		return result;
+	}
+	
+
+	public Txn newTxn(String id, boolean useJournal, boolean isWrite) {
+		String txnId = id == null ? "txn-" + new Random().nextLong() : id;
 
 		Txn result;
 		if (!useJournal) {
@@ -111,6 +129,10 @@ public class TxnMgrImpl
 			
 			Path txnFolder = txnBasePath.resolve(txnId);
 	
+			if (Files.exists(txnFolder)) {
+				throw new IllegalArgumentException(String.format("A transaction with id %s already exists", txnId));
+			}
+			
 			try {
 				Files.createDirectories(txnFolder);
 	
@@ -126,5 +148,30 @@ public class TxnMgrImpl
 		}
 		
 		return result;
+	}
+
+
+	@Override
+	public Stream<Txn> streamTxns() throws IOException {
+		return Files.list(txnBasePath)
+			.map(path -> {
+				String txnId = path.getFileName().toString();
+				Txn r = getTxn(txnId);
+				return r;
+			});
+	}
+
+
+	/**
+	 * Deletes the lock and transaction folders.
+	 * Does not delete the store and index folders.
+	 */
+	@Override
+	public void deleteResources() throws IOException {
+		try {
+			MoreFiles.deleteRecursively(lockRepo.getRootPath());
+		} finally {
+			MoreFiles.deleteRecursively(txnBasePath);
+		}
 	}
 }

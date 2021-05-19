@@ -8,6 +8,16 @@ import org.aksw.jena_sparql_api.txn.FileSync;
 import org.aksw.jena_sparql_api.txn.TxnComponent;
 
 
+/**
+ * View over a resource w.r.t a transaction.
+ * This means that most methods such as
+ * declareAccess, undeclareAccess and isVisible are interpreted
+ * w.r.t. the underlying transaction.
+ * 
+ * 
+ * @author raven
+ *
+ */
 public interface TxnResourceApi
 	extends TxnComponent
 {

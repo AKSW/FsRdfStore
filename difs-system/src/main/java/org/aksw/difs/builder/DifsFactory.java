@@ -11,6 +11,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -179,6 +180,19 @@ public class DifsFactory {
 		return this;
 	}
 	
+	/**
+	 * Create a fresh store definition resource (blank node) and pass it to the mutator
+	 * 
+	 * @param mutator
+	 * @return
+	 */
+	public DifsFactory setStoreDefinition(Consumer<StoreDefinition> mutator) {
+		this.storeDefinition = ModelFactory.createDefaultModel().createResource().as(StoreDefinition.class);
+		mutator.accept(this.storeDefinition);
+		return this;
+	}
+
+	
 	public DatasetGraphIndexerFromFileSystem addIndex(Node predicate, String name, Function<Node, String[]> objectToPath) throws IOException {
 //        raw, DCTerms.identifier.asNode(),
 //        path = Paths.get("/tmp/graphtest/index/by-id"),
@@ -213,15 +227,8 @@ public class DifsFactory {
 		return this;
 	}
 
-	public DatasetGraph connect() throws IOException {
-		// If the repo does not yet exist then run init which
-		// creates default conf files
-		
-		Path repoRootPath = configFile.getParent();
-		
-		if (createIfNotExists) {
-			Files.createDirectories(repoRootPath);
-		}
+	
+	public StoreDefinition createEffectiveStoreDefinition() throws IOException {
 
 		StoreDefinition effStoreDef;
 		if (!Files.exists(configFile)) {
@@ -244,7 +251,19 @@ public class DifsFactory {
 			effStoreDef = loadStoreDefinition(configFile);
 		}
 		
+		return effStoreDef;
+	}
+
+	public TxnMgr createTxnMgr() throws IOException {
+		// If the repo does not yet exist then run init which
+		// creates default conf files
 		
+		Path repoRootPath = configFile.getParent();
+		
+		if (createIfNotExists) {
+			Files.createDirectories(repoRootPath);
+		}
+
 		// Set up indexers
 		
 		Path txnStore = repoRootPath.resolve("txns");
@@ -259,8 +278,16 @@ public class DifsFactory {
 
 		SymbolicLinkStrategy effSymlinkStrategy = symbolicLinkStrategy != null ? symbolicLinkStrategy : new SymbolicLinkStrategyStandard(); 
 
-		TxnMgr txnMgr = new TxnMgrImpl(lockMgr, txnStore, resStore, resLocks, effSymlinkStrategy);
+		TxnMgr result = new TxnMgrImpl(lockMgr, txnStore, resStore, resLocks, effSymlinkStrategy);
 
+		return result;
+	}
+
+	public DatasetGraph connect() throws IOException {
+		StoreDefinition effStoreDef = createEffectiveStoreDefinition();
+		
+		TxnMgr txnMgr = createTxnMgr();
+		
 		Collection<DatasetGraphIndexPlugin> indexers = effStoreDef.getIndexDefinition().stream()
 			.map(this::loadIndexDefinition)
 			.collect(Collectors.toList());

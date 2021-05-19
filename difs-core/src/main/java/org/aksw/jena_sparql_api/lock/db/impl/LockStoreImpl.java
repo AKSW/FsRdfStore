@@ -68,6 +68,7 @@ public class LockStoreImpl
 	}
 
 	
+	
 	@Override
 	public ResourceLock<String> getLockForResource(String resource) {
 		String[] storeKey = storeRepo.getPathSegments(resource);
@@ -78,6 +79,7 @@ public class LockStoreImpl
 		return getLockByKey(lockKey);
 	}
 	
+	@Override
 	public ResourceLock<String> getLockByKey(String[] lockKey) {
 		return new ResourceLockImpl(lockKey);
 	}

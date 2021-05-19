@@ -2,6 +2,7 @@ package org.aksw.jena_sparql_api.txn;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -11,9 +12,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Stream;
 
 import org.aksw.commons.io.util.PathUtils;
-import org.aksw.jena_sparql_api.difs.main.Array;
-import org.aksw.jena_sparql_api.lock.db.api.LockOwner;
-import org.aksw.jena_sparql_api.lock.db.api.ResourceLock;
+import org.aksw.commons.util.array.Array;
 import org.aksw.jena_sparql_api.txn.api.TxnResourceApi;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,8 +35,12 @@ public class TxnSerializable
 //	protected transient Path finalizeCommitFile;
 	protected transient Path commitFile;
 	protected transient Path finalizeFile;
-	protected transient Path rollbackFile;	
-	
+	protected transient Path rollbackFile;
+
+	@Override
+	public String getId() {
+		return txnId;
+	}
 
 //	protected IsolationLevel isolationLevel;
 
@@ -106,7 +109,8 @@ public class TxnSerializable
 //	}    
 
 
-	public Instant getCreationInstant() {
+	@Override
+	public Instant getCreationDate() {
 		try {
 		    BasicFileAttributes attr = Files.readAttributes(txnFolder, BasicFileAttributes.class);
 		    FileTime fileTime = attr.creationTime();
@@ -295,6 +299,30 @@ public class TxnSerializable
 	}
 
 	
+	@Override
+	public Instant getActivityDate() throws IOException {
+		FileTime timestamp = Files.getLastModifiedTime(txnFolder, LinkOption.NOFOLLOW_LINKS);
+		Instant result = timestamp.toInstant();
+		return result;
+	}
+	
+	@Override
+	public void setActivityDate(Instant instant) throws IOException {
+		FileTime timestamp = FileTime.from(instant);
+		Files.setLastModifiedTime(txnFolder, timestamp);
+	}
+	
+	
+	@Override
+	public boolean isStale() {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public void claim() {
+		throw new UnsupportedOperationException();
+	}
+
 	/*
 	public class LockImpl
 		extends LockBase

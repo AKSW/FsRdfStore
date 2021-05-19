@@ -15,6 +15,16 @@
 
 	<dependencies>
 
+		<dependency>
+			<groupId>org.aksw.commons</groupId>
+			<artifactId>jena-jgrapht-bindings</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.aksw.commons</groupId>
+			<artifactId>aksw-commons-util</artifactId>
+		</dependency>
+
 		<!-- <dependency> -->
 		<!-- <groupId>org.apache.jena</groupId> -->
 		<!-- <artifactId>jena-tdb2</artifactId> -->

@@ -64,7 +64,7 @@ public class TxnResourceApiSerializable
 		if (txnResourceLock.isLockedHere()) {
 			result = true;
 		} else {				
-			Instant txnTime = txn.getCreationInstant();
+			Instant txnTime = txn.getCreationDate();
 			Instant resTime;
 			try {
 				resTime = fileSync.getLastModifiedTime();

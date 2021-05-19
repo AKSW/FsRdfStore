@@ -21,6 +21,8 @@ public interface LockStore<R, O> {
 	 */
 	ResourceLock<O> getLockForResource(String resource);
 	
+	ResourceLock<O> getLockByKey(String[] lockKey);
+	
 	/**
 	 * Get a stream of all existing resource locks
 	 * The resulting stream should be weakly consistent (See {@link Files#list(java.nio.file.Path)).
