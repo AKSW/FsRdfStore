@@ -31,6 +31,7 @@ public interface StoreDefinition
 
     @Iri(DIFSTerms.heartbeatInterval)
     Long getHeartbeatInterval();
+    StoreDefinition setHeartbeatInterval(Long heartbeatInterval);
 
 
     default StoreDefinition addIndex(String predicate, String folderName, Class<?> clazz) {

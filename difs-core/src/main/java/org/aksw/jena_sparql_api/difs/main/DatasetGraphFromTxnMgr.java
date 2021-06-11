@@ -108,6 +108,7 @@ public class DatasetGraphFromTxnMgr
         return txns.get();
     }
 
+
     public DatasetGraphFromTxnMgr(boolean useJournal, TxnMgr txnMgr, Collection<DatasetGraphIndexPlugin> indexers) {
         this(useJournal, txnMgr, indexers, 100);
     }
@@ -129,8 +130,14 @@ public class DatasetGraphFromTxnMgr
         this.syncCache = createCache(txnMgr, (CacheBuilder<Array<String>, SyncedDataset>)cacheBuilder);
     }
 
+
     public TxnMgr getTxnMgr() {
         return txnMgr;
+    }
+
+
+    public LoadingCache<Array<String>, SyncedDataset> getSyncCache() {
+        return syncCache;
     }
 
     @Override
@@ -225,7 +232,7 @@ public class DatasetGraphFromTxnMgr
                 // add the statement that the commit action can now be run
                 local().addCommit();
 
-                applyJournal();
+                applyJournal(local(), syncCache);
         } catch (Exception e) {
             try {
                 local().addRollback();
@@ -235,7 +242,7 @@ public class DatasetGraphFromTxnMgr
             }
 
             try {
-                applyJournal();
+                applyJournal(local(), syncCache);
             } catch (Exception e2) {
                 e2.addSuppressed(e);
                 throw new RuntimeException(e2);
@@ -245,11 +252,10 @@ public class DatasetGraphFromTxnMgr
         }
     }
 
-
-    protected void applyJournal() {
+    public static void applyJournal(Txn txn, LoadingCache<Array<String>, SyncedDataset> syncCache) {
         boolean isCommit;
         try {
-            isCommit = local().isCommit() && !local().isRollback();
+            isCommit = txn.isCommit() && !txn.isRollback();
         } catch (IOException e1) {
             throw new RuntimeException(e1);
         }
@@ -260,16 +266,16 @@ public class DatasetGraphFromTxnMgr
             // As these actions remove undo information
             // there is no turning back anymore
             if (isCommit) {
-                local().addFinalize();
+                txn.addFinalize();
             }
 
             // TODO Stream the relPaths rather than the string resource names?
-            try (Stream<String[]> stream = local().streamAccessedResourcePaths()) {
+            try (Stream<String[]> stream = txn.streamAccessedResourcePaths()) {
                 Iterator<String[]> it = stream.iterator();
                 while (it.hasNext()) {
                     String[] res = it.next();
                     logger.debug("Finalizing and unlocking: " + res);
-                    TxnResourceApi api = local().getResourceApi(res);
+                    TxnResourceApi api = txn.getResourceApi(res);
 
                     if (isCommit) {
                         api.finalizeCommit();
@@ -293,7 +299,7 @@ public class DatasetGraphFromTxnMgr
                 }
             }
 
-            local().cleanUpTxn();
+            txn.cleanUpTxn();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

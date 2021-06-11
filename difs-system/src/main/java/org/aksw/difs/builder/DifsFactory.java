@@ -36,6 +36,7 @@ import org.aksw.jena_sparql_api.lock.LockManagerPath;
 import org.aksw.jena_sparql_api.lock.ThreadLockManager;
 import org.aksw.jena_sparql_api.txn.ResourceRepository;
 import org.aksw.jena_sparql_api.txn.TxnMgrImpl;
+import org.aksw.jena_sparql_api.txn.api.Txn;
 import org.aksw.jena_sparql_api.txn.api.TxnMgr;
 import org.apache.jena.dboe.sys.ProcessUtils;
 import org.apache.jena.graph.Node;
@@ -110,7 +111,11 @@ public class DifsFactory {
         try (InputStream in = Files.newInputStream(confFilePath)) {
              RDFDataMgr.read(model, in, lang);
         }
-        List<Property> mainProperties = Arrays.asList(DIFS.storePath, DIFS.indexPath, DIFS.index);
+        List<Property> mainProperties = Arrays.asList(
+                DIFS.storePath,
+                DIFS.indexPath,
+                DIFS.index,
+                DIFS.heartbeatInterval);
 
         Set<Resource> resources = listResources(model, mainProperties).collect(Collectors.toSet());
 
@@ -301,16 +306,40 @@ public class DifsFactory {
     public DatasetGraph connect() throws IOException {
         StoreDefinition effStoreDef = createEffectiveStoreDefinition();
 
-        long heartbeatInterval = Optional.ofNullable(effStoreDef.getHeartbeatInterval()).orElse(5l);
+        long heartbeatInterval = Optional.ofNullable(effStoreDef.getHeartbeatInterval()).orElse(5000l);
 
-        TxnMgr txnMgr = createTxnMgr(Duration.ofSeconds(heartbeatInterval));
+        TxnMgr txnMgr = createTxnMgr(Duration.ofMillis(heartbeatInterval));
 
         Collection<DatasetGraphIndexPlugin> indexers = effStoreDef.getIndexDefinition().stream()
             .map(this::loadIndexDefinition)
             .collect(Collectors.toList());
 
-        return new DatasetGraphFromTxnMgr(useJournal, txnMgr, indexers);
+        DatasetGraphFromTxnMgr result = new DatasetGraphFromTxnMgr(useJournal, txnMgr, indexers);
+
+        // Check for stale transactions
+        logger.info("Checking existing txns...");
+        try (Stream<Txn> stream = txnMgr.streamTxns()) {
+            stream.forEach(txn -> {
+                try {
+                    // if (txn.isStale()) {
+                    if (txn.claim()) {
+                        logger.info("Detected stale txn; applying rollback: " + txn.getId());
+                        if (!txn.isCommit()) {
+                            txn.addRollback();
+                        }
+                        DatasetGraphFromTxnMgr.applyJournal(txn, result.getSyncCache());
+                    }
+                } catch (Exception e) {
+                    logger.warn("Failed to process txn", e);
+                }
+            });
+        }
+
+        logger.info("Done checking existing txns");
+
         // TODO Read configuration file if it exists
         // return DatasetGraphFromFileSystem.create(repoRootPath, lockMgr);
+
+        return result;
     }
 }

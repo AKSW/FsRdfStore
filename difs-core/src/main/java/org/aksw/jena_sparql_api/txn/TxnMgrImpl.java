@@ -178,12 +178,16 @@ public class TxnMgrImpl
 
     @Override
     public Stream<Txn> streamTxns() throws IOException {
-        return Files.list(txnBasePath)
-            .map(path -> {
-                String txnId = path.getFileName().toString();
-                Txn r = getTxn(txnId);
-                return r;
-            });
+        Stream<Path> baseStream = Files.exists(txnBasePath)
+                ? Files.list(txnBasePath)
+                : Stream.empty();
+
+        return baseStream
+                .map(path -> {
+                    String txnId = path.getFileName().toString();
+                    Txn r = getTxn(txnId);
+                    return r;
+                });
     }
 
 
