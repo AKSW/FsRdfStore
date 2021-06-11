@@ -6,7 +6,7 @@ import java.util.stream.Stream;
 
 import org.aksw.jena_sparql_api.lock.LockBaseRepeat;
 import org.aksw.jena_sparql_api.lock.LockUtils;
-import org.aksw.jena_sparql_api.lock.db.api.LockOwner;
+import org.aksw.jena_sparql_api.lock.db.api.ReadWriteLockWithOwnership;
 import org.aksw.jena_sparql_api.lock.db.api.ResourceLock;
 
 
@@ -18,7 +18,7 @@ import org.aksw.jena_sparql_api.lock.db.api.ResourceLock;
  *
  */
 public class LockFromLockStore
-	implements LockOwner
+	implements ReadWriteLockWithOwnership
 {
 	protected ResourceLock<String> resourceLock;
 	

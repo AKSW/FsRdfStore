@@ -3,7 +3,7 @@ package org.aksw.jena_sparql_api.txn.api;
 import java.io.IOException;
 import java.time.Instant;
 
-import org.aksw.jena_sparql_api.lock.db.api.LockOwner;
+import org.aksw.jena_sparql_api.lock.db.api.ReadWriteLockWithOwnership;
 import org.aksw.jena_sparql_api.txn.FileSync;
 import org.aksw.jena_sparql_api.txn.TxnComponent;
 
@@ -22,7 +22,7 @@ public interface TxnResourceApi
 	extends TxnComponent
 {
 	String[] getResourceKey();
-	LockOwner getTxnResourceLock();
+	ReadWriteLockWithOwnership getTxnResourceLock();
 
 	
 	Instant getLastModifiedDate() throws IOException;
@@ -37,7 +37,7 @@ public interface TxnResourceApi
 	
 	/** Convenience short hand to lock the resource for this transaction */
 	default void lock(boolean write) {
-		LockOwner txnResourceLock = getTxnResourceLock();
+		ReadWriteLockWithOwnership txnResourceLock = getTxnResourceLock();
 		if (write) {
 			txnResourceLock.writeLock().lock();
 		} else {
@@ -48,7 +48,7 @@ public interface TxnResourceApi
 	
 	/** Convenience short hand to unlock either lock */
 	default void unlock() {
-		LockOwner txnResourceLock = getTxnResourceLock();
+		ReadWriteLockWithOwnership txnResourceLock = getTxnResourceLock();
 
 		txnResourceLock.readLock().unlock();
 		txnResourceLock.writeLock().unlock();

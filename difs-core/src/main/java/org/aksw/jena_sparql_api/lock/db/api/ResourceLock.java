@@ -15,7 +15,7 @@ public interface ResourceLock<O> {
 	 */
 	O getMgmtLockOwnerKey();
 	
-	LockOwner get(O ownerKey);
+	ReadWriteLockWithOwnership get(O ownerKey);
 	
 	/** Owner to lock 
 	 * @throws IOException */

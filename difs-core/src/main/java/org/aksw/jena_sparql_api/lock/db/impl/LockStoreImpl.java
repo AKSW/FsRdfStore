@@ -12,7 +12,7 @@ import java.util.stream.Stream;
 
 import org.aksw.common.io.util.symlink.SymbolicLinkStrategy;
 import org.aksw.commons.io.util.PathUtils;
-import org.aksw.jena_sparql_api.lock.db.api.LockOwner;
+import org.aksw.jena_sparql_api.lock.db.api.ReadWriteLockWithOwnership;
 import org.aksw.jena_sparql_api.lock.db.api.LockStore;
 import org.aksw.jena_sparql_api.lock.db.api.ResourceLock;
 import org.aksw.jena_sparql_api.txn.ResourceRepository;
@@ -141,7 +141,7 @@ public class LockStoreImpl
 		}
 
 		@Override
-		public LockOwner get(String ownerKey) {
+		public ReadWriteLockWithOwnership get(String ownerKey) {
 			// return new LockOwnerImpl(ownerKey);
 			return createLockOwner(ownerKey);
 		}

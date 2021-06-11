@@ -7,7 +7,7 @@ import java.time.Instant;
 import java.util.function.Consumer;
 
 import org.aksw.commons.io.util.PathUtils;
-import org.aksw.jena_sparql_api.lock.db.api.LockOwner;
+import org.aksw.jena_sparql_api.lock.db.api.ReadWriteLockWithOwnership;
 import org.aksw.jena_sparql_api.lock.db.api.ResourceLock;
 import org.aksw.jena_sparql_api.lock.db.impl.LockOwnerDummy;
 import org.aksw.jena_sparql_api.txn.api.TxnResourceApi;
@@ -51,7 +51,7 @@ public class TxnResourceApiReadUncommitted<T extends TxnReadUncommitted>
 	}
 	
 	@Override
-	public LockOwner getTxnResourceLock() {
+	public ReadWriteLockWithOwnership getTxnResourceLock() {
 		return new LockOwnerDummy();
 	}
 	

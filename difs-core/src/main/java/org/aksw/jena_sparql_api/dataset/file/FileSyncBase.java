@@ -9,9 +9,9 @@ import java.nio.file.attribute.FileTime;
 import java.util.Objects;
 import java.util.function.Supplier;
 
+import org.aksw.commons.util.ref.Ref;
+import org.aksw.commons.util.ref.RefImpl;
 import org.aksw.jena_sparql_api.concurrent.util.Synchronized;
-import org.aksw.jena_sparql_api.io.common.Reference;
-import org.aksw.jena_sparql_api.io.common.ReferenceImpl;
 import org.aksw.jena_sparql_api.lock.FileLockUtils;
 import org.apache.jena.dboe.base.file.ProcessFileLock;
 import org.apache.jena.query.ReadWrite;
@@ -36,7 +36,7 @@ public abstract class FileSyncBase
     implements Transactional, AutoCloseable
 {
     public static class State {
-        Reference<FileChannel> channelRef;
+        Ref<FileChannel> channelRef;
         // FileLock lock;
         Lock lock;
         ReadWrite transactionMode;
@@ -48,17 +48,17 @@ public abstract class FileSyncBase
     protected FileTime cacheFileTime = null;
 
 //    protected OpenOption[] openOptions;
-    protected Supplier<Reference<FileChannel>> rootFileChannelSupp;
+    protected Supplier<Ref<FileChannel>> rootFileChannelSupp;
 
 
-    protected Reference<FileChannel> openActual() {
+    protected Ref<FileChannel> openActual() {
         try {
             Path parentPath = path.getParent();
             if (parentPath != null) {
                 Files.createDirectories(parentPath);
             }
 
-            Reference<FileChannel> r = FileLockUtils.open(path, false,
+            Ref<FileChannel> r = FileLockUtils.open(path, false,
             		StandardOpenOption.CREATE,
             		StandardOpenOption.READ,
             		StandardOpenOption.WRITE,
@@ -70,7 +70,7 @@ public abstract class FileSyncBase
     }
 
 
-    protected Reference<FileChannel> rootFileChannelRef = null;
+    protected Ref<FileChannel> rootFileChannelRef = null;
     protected ThreadLocal<State> localState = new ThreadLocal<>();
 
     protected Lock transactionLock = new LockMRPlusSW();
@@ -148,24 +148,24 @@ public abstract class FileSyncBase
         }
     }
 
-    protected Reference<FileChannel> acquireLocalFileChannelRef() throws Exception {
+    protected Ref<FileChannel> acquireLocalFileChannelRef() throws Exception {
    
     	
         // If the file has just been opened, we need to load the data
         // once we obtained the file lock
         boolean needsDataLoading = false;
 
-        Reference<FileChannel> localFileChannelRef;
+        Ref<FileChannel> localFileChannelRef;
         synchronized (this) {
             if (rootFileChannelRef == null) {
 
             	// if .isAlive returns false, it means that the close action
                 // is running
                 //Reference<FileChannel> ref = FileLockUtils.open(path, readLockRequested, openOptions);
-                Reference<FileChannel> ref = rootFileChannelSupp.get();
+                Ref<FileChannel> ref = rootFileChannelSupp.get();
 
                 FileChannel fileChannel = ref.get();
-                rootFileChannelRef = ReferenceImpl.create(fileChannel,
+                rootFileChannelRef = RefImpl.create(fileChannel,
                         () -> {
                             ref.close();
                             rootFileChannelRef = null;
@@ -227,7 +227,7 @@ public abstract class FileSyncBase
 
 
         // Open the file if it has not been opened by another transaction before
-        Reference<FileChannel> localFcRef = acquireLocalFileChannelRef();
+        Ref<FileChannel> localFcRef = acquireLocalFileChannelRef();
 
 
         state = new State();

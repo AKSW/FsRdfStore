@@ -2,10 +2,10 @@ package org.aksw.jena_sparql_api.lock.db.impl;
 
 import java.util.concurrent.locks.Lock;
 
-import org.aksw.jena_sparql_api.lock.db.api.LockOwner;
+import org.aksw.jena_sparql_api.lock.db.api.ReadWriteLockWithOwnership;
 
 public class LockOwnerDummy
-	implements LockOwner
+	implements ReadWriteLockWithOwnership
 {
 	@Override
 	public Lock readLock() {

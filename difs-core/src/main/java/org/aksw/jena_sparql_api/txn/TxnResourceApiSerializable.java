@@ -8,7 +8,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 
 import org.aksw.commons.io.util.PathUtils;
-import org.aksw.jena_sparql_api.lock.db.api.LockOwner;
+import org.aksw.jena_sparql_api.lock.db.api.ReadWriteLockWithOwnership;
 import org.aksw.jena_sparql_api.lock.db.api.ResourceLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,7 +29,7 @@ public class TxnResourceApiSerializable
 
 
 	protected ResourceLock<String> resourceLock;
-	protected LockOwner txnResourceLock;
+	protected ReadWriteLockWithOwnership txnResourceLock;
 
 	//		public ResourceApi(String resourceName) {
 		//this.resourceName = resourceName;
@@ -53,7 +53,7 @@ public class TxnResourceApiSerializable
 	}
 	
 	@Override
-	public LockOwner getTxnResourceLock() {
+	public ReadWriteLockWithOwnership getTxnResourceLock() {
 		return txnResourceLock;
 	}
 

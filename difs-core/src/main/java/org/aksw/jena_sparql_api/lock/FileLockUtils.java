@@ -9,8 +9,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Semaphore;
 
-import org.aksw.jena_sparql_api.io.common.Reference;
-import org.aksw.jena_sparql_api.io.common.ReferenceImpl;
+import org.aksw.commons.util.ref.Ref;
+import org.aksw.commons.util.ref.RefImpl;
 import org.apache.jena.dboe.base.file.ProcessFileLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,7 +42,7 @@ public class FileLockUtils {
      * @throws IOException
      * @throws InterruptedException
      */
-    public static Reference<FileChannel> open(
+    public static Ref<FileChannel> open(
             Path path,
             boolean readLockRequested,
             OpenOption... openOptions) throws IOException, InterruptedException {
@@ -83,7 +83,7 @@ public class FileLockUtils {
         logger.info("Acquired thread lock for: " + path);
 
         State s = state;
-        Reference<FileChannel> result = ReferenceImpl.create(
+        Ref<FileChannel> result = RefImpl.create(
                 s.fileChannel, () -> {
                     synchronized(pathToState) {
                         logger.info("Released locks for: " + path);

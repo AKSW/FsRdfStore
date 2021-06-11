@@ -15,6 +15,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 import org.aksw.common.io.util.symlink.SymbolicLinkStrategies;
@@ -39,8 +40,12 @@ import org.apache.commons.vfs2.FileSystemManager;
 import org.apache.commons.vfs2.FileSystemOptions;
 import org.apache.commons.vfs2.RandomAccessContent;
 import org.apache.commons.vfs2.VFS;
+import org.apache.commons.vfs2.provider.http4.Http4FileSystemConfigBuilder;
+import org.apache.commons.vfs2.provider.http5.Http5FileSystemConfigBuilder;
 import org.apache.commons.vfs2.provider.webdav.WebdavFileSystemConfigBuilder;
 import org.apache.commons.vfs2.util.RandomAccessMode;
+import org.apache.http.conn.HttpClientConnectionManager;
+import org.apache.http.impl.conn.BasicHttpClientConnectionManager;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.NodeFactory;
 import org.apache.jena.query.Dataset;
@@ -68,211 +73,214 @@ import com.sshtools.vfs2nio.Vfs2NioFileSystemProvider;
 
 public class MainPlayground {
 
-	public static void main(String[] args) throws Exception {
-		mainVfsHttpTest(args);
-	}
+    public static void main(String[] args) throws Exception {
+         mainVfsHttpTest(args);
+//        mainBinSearch(args);
+    }
 
-	public static void mainTestNoBase(String[] args) throws Exception {
-		Model model = ModelFactory.createDefaultModel();
-		model.add(RDF.type, RDF.type, RDF.Property);
-		
-		RDFWriter writer = RDFWriter.create()
-				.format(RDFFormat.TURTLE_PRETTY)
-				.base(RDF.uri)
-				.set(RIOT.symTurtleOmitBase, true)
-				.source(model)
-				.build();
-		
-		writer.output(System.out);
-		
-		// Output: <#type>  a      <#Property> .
-	}
-	
-	
-	public static void mainBinSearch(String[] args) throws Exception {
+    public static void mainTestNoBase(String[] args) throws Exception {
+        Model model = ModelFactory.createDefaultModel();
+        model.add(RDF.type, RDF.type, RDF.Property);
 
-		FileSystem fs = FileSystems.newFileSystem(
-				URI.create("vfs:" + "http://localhost/"), 
-				null);
+        RDFWriter writer = RDFWriter.create()
+                .format(RDFFormat.TURTLE_PRETTY)
+                .base(RDF.uri)
+                .set(RIOT.symTurtleOmitBase, true)
+                .source(model)
+                .build();
+
+        writer.output(System.out);
+
+        // Output: <#type>  a      <#Property> .
+    }
+
+
+    public static void mainBinSearch(String[] args) throws Exception {
+
+        FileSystemOptions fsOpts = new FileSystemOptions();
+        Http5FileSystemConfigBuilder.getInstance().setKeepAlive(fsOpts, false);
+
+        Map<String, Object> env = new HashMap<>();
+        env.put(Vfs2NioFileSystemProvider.FILE_SYSTEM_OPTIONS, fsOpts);
+
+
+        FileSystem fs = FileSystems.newFileSystem(
+                URI.create("vfs:" + "http5://localhost/"),
+                env);
 //
 //		// fs.getRootDirectories().iterator().next().resolve("aksw.org/robots.txt");
-		Path path = fs.getRootDirectories().iterator().next()
-				.resolve("webdav/dnb-all_lds_20200213.sorted.nt.bz2");
+        Path path = fs.getRootDirectories().iterator().next()
+                .resolve("webdav/dnb-all_lds_20200213.sorted.nt.bz2");
 
 //		Path path = Paths.get(new URI("vfs:" + "http://localhost/webdav/dnb-all_lds_20200213.sorted.nt.bz2"));
-		
-		System.out.println(path.toUri());
-		try (BinarySearcher bs = BlockSources.createBinarySearcherBz2(path, 32 * 1024)) {
-			InputStream in = bs.search("<https://d-nb.info/1000000028>");
-			new BufferedReader(new InputStreamReader(in)).lines().forEach(System.out::println);
-		}
-	}
-	
-	public static void main3(String[] args) throws IOException {		
-		
-		DatasetGraph dg = DifsFactory.newInstance()
-				.setSymbolicLinkStrategy(SymbolicLinkStrategies.FILE)
-				.setConfigFile(Paths.get("/home/raven/Datasets/gitalog/store.conf.ttl"))
-				.connect();
-			
+
+        System.out.println(path.toUri());
+        try (BinarySearcher bs = BlockSources.createBinarySearcherBz2(path, 32 * 1024)) {
+            InputStream in = bs.search("<https://d-nb.info/1000000028>");
+            new BufferedReader(new InputStreamReader(in)).lines().forEach(System.out::println);
+        }
+    }
+
+    public static void main3(String[] args) throws IOException {
+
+        DatasetGraph dg = DifsFactory.newInstance()
+                .setSymbolicLinkStrategy(SymbolicLinkStrategies.FILE)
+                .setConfigFile(Paths.get("/home/raven/Datasets/gitalog/store.conf.ttl"))
+                .connect();
+
 //		dg.find(Node.ANY, Node.ANY, DCTerms.identifier.asNode(), NodeFactory.createLiteral("38a99f0e49b70f41d3774ed3127e06de01dc766f"))
 //			.forEachRemaining(x -> System.out.println("Found: " + x));
-		dg.find(Node.ANY, Node.ANY, DCTerms.identifier.asNode(), Node.ANY)
-		.forEachRemaining(x -> System.out.println("Found: " + x));
-	}
+        dg.find(Node.ANY, Node.ANY, DCTerms.identifier.asNode(), Node.ANY)
+        .forEachRemaining(x -> System.out.println("Found: " + x));
+    }
 
-	public static void main1(String[] args) throws IOException {
-		StoreDefinition sd = ModelFactory.createDefaultModel().createResource().as(StoreDefinition.class);
-		
-		sd.setStorePath("store");
-		sd.setIndexPath("index");
-		sd.addIndex("http://dataid.dbpedia.org/ns/core#group", "group", RdfTermIndexerFactoryIriToFolder.class);
-		sd.addIndex("http://purl.org/dc/terms/hasVersion", "version", RdfIndexerFactoryLexicalForm.class);
-		sd.addIndex(DCAT.downloadURL.asNode(), "downloadUrl", RdfTermIndexerFactoryIriToFolder.class);
-		sd.addIndex(DCTerms.identifier.asNode(), "identifier", RdfIndexerFactoryLexicalForm.class);
-		
-		RDFDataMgr.write(System.out, sd.getModel(), RDFFormat.TURTLE_PRETTY);
-	}
-	
-	
-	public static void mainVfsHttpTest(String[] args) throws Exception {
-		//String url = "https://aksw.org/robots.txt";
-		
-		String url = "http://localhost/webdav/dnb-all_lds_20200213.sorted.nt.bz2";
-		FileSystemManager fsManager = VFS.getManager();
-		
-		try (FileObject file = fsManager.resolveFile(url)) {		
-			try (RandomAccessContent r = file.getContent().getRandomAccessContent(RandomAccessMode.READ)) {
-				
-				StopWatch sw1 = StopWatch.createStarted();
-				r.seek(20);
-				System.out.println("Initial seek: " + sw1.getTime(TimeUnit.MILLISECONDS));
+    public static void main1(String[] args) throws IOException {
+        StoreDefinition sd = ModelFactory.createDefaultModel().createResource().as(StoreDefinition.class);
 
-				StopWatch sw2 = StopWatch.createStarted();
-				byte[] bytes = new byte[100];
-				r.readFully(bytes);
-				System.out.println("Read: " + sw2.getTime(TimeUnit.MILLISECONDS));
-				// System.out.println(new String(bytes));
-				
-				StopWatch sw3 = StopWatch.createStarted();
-				r.seek(100);
-				System.out.println("Subsequent seek: " + sw3.getTime(TimeUnit.MILLISECONDS));
-			}
-		}
-		System.out.println("Done");
-	}
+        sd.setStorePath("store");
+        sd.setIndexPath("index");
+        sd.addIndex("http://dataid.dbpedia.org/ns/core#group", "group", RdfTermIndexerFactoryIriToFolder.class);
+        sd.addIndex("http://purl.org/dc/terms/hasVersion", "version", RdfIndexerFactoryLexicalForm.class);
+        sd.addIndex(DCAT.downloadURL.asNode(), "downloadUrl", RdfTermIndexerFactoryIriToFolder.class);
+        sd.addIndex(DCTerms.identifier.asNode(), "identifier", RdfIndexerFactoryLexicalForm.class);
 
-	public static void mainFileChannelHttp(String[] args) throws Exception {
-		FileSystem fs = FileSystems.newFileSystem(
-				URI.create("vfs:" + "http://aksw.org"), 
-				null);
+        RDFDataMgr.write(System.out, sd.getModel(), RDFFormat.TURTLE_PRETTY);
+    }
 
-		// fs.getRootDirectories().iterator().next().resolve("aksw.org/robots.txt");
-		Path path = fs.getRootDirectories().iterator().next()
-				.resolve("robots.txt");
-		
-		try (FileChannel fc = FileChannel.open(path, StandardOpenOption.READ)) {
-			fc.position(20);
-			byte[] bytes = new byte[100];
-			fc.read(ByteBuffer.wrap(bytes));
-			System.out.println(new String(bytes));			
-		}
-		
-		try (InputStream in = Files.newInputStream(path)) {
-			byte[] bytes = new byte[100];
-			in.read(bytes);
-			System.out.println(new String(bytes));			
-		}
-	}
 
-	
-	public static void mainX(String[] args) throws Exception {
-		JenaSystem.init();
-				
-		String[] vfsConfWebDav = new String[]{"webdav://localhost", "webdav/gitalog/store.conf.ttl"};
-		String[] vfsConfLocalFs = new String[]{"file:///", "/var/www/webdav/gitalog/store.conf.ttl"};
-		String[] vfsConfZip = new String[]{"zip:///tmp/gitalog/gitalog.zip", "store.conf.ttl"};
-		
+    public static void mainVfsHttpTest(String[] args) throws Exception {
+        String url = "http5://localhost/webdav/dnb-all_lds_20200213.sorted.nt.bz2";
+        FileSystemManager fsManager = VFS.getManager();
 
-		boolean useJournal = true;
-		String[] vfsConf = vfsConfLocalFs;
+        Random rand = new Random();
+        try (FileObject file = fsManager.resolveFile(url)) {
+            try (RandomAccessContent r = file.getContent().getRandomAccessContent(RandomAccessMode.READ)) {
 
-		
+                for (int i = 0; i < 100000; ++i) {
+                    long pos = rand.nextInt(1000000000);
+                    StopWatch sw = StopWatch.createStarted();
+                    r.seek(pos);
+                    byte[] bytes = new byte[100];
+                    r.readFully(bytes);
+                    System.out.println("Read at " + pos + " took " + sw.getTime(TimeUnit.MILLISECONDS));
+                    // System.out.println(new String(bytes));
+                }
+            }
+        }
+        System.out.println("Done");
+    }
+
+    public static void mainFileChannelHttp(String[] args) throws Exception {
+        FileSystem fs = FileSystems.newFileSystem(
+                URI.create("vfs:" + "http://aksw.org"),
+                null);
+
+        // fs.getRootDirectories().iterator().next().resolve("aksw.org/robots.txt");
+        Path path = fs.getRootDirectories().iterator().next()
+                .resolve("robots.txt");
+
+        try (FileChannel fc = FileChannel.open(path, StandardOpenOption.READ)) {
+            fc.position(20);
+            byte[] bytes = new byte[100];
+            fc.read(ByteBuffer.wrap(bytes));
+            System.out.println(new String(bytes));
+        }
+
+        try (InputStream in = Files.newInputStream(path)) {
+            byte[] bytes = new byte[100];
+            in.read(bytes);
+            System.out.println(new String(bytes));
+        }
+    }
+
+
+    public static void mainX(String[] args) throws Exception {
+        JenaSystem.init();
+
+        String[] vfsConfWebDav = new String[]{"webdav://localhost", "webdav/gitalog/store.conf.ttl"};
+        String[] vfsConfLocalFs = new String[]{"file:///", "/var/www/webdav/gitalog/store.conf.ttl"};
+        String[] vfsConfZip = new String[]{"zip:///tmp/gitalog/gitalog.zip", "store.conf.ttl"};
+
+
+        boolean useJournal = true;
+        String[] vfsConf = vfsConfLocalFs;
+
+
 //		String vfsUri = "file:///var/www/webdav/gitalog/store.conf";
 //		String vfsUri = "zip:///tmp/gitalog/gitalog.zip";
-		FileSystemOptions webDavFsOpts = new FileSystemOptions();
-		WebdavFileSystemConfigBuilder.getInstance().setFollowRedirect(webDavFsOpts, false);
+        FileSystemOptions webDavFsOpts = new FileSystemOptions();
+        WebdavFileSystemConfigBuilder.getInstance().setFollowRedirect(webDavFsOpts, false);
 
-		Map<String, Object> env = new HashMap<>();
-		env.put(Vfs2NioFileSystemProvider.FILE_SYSTEM_OPTIONS, webDavFsOpts);
+        Map<String, Object> env = new HashMap<>();
+        env.put(Vfs2NioFileSystemProvider.FILE_SYSTEM_OPTIONS, webDavFsOpts);
 
-		String vfsUri = vfsConf[0];		
-		FileSystem fs;
-		
-		if (vfsUri.startsWith("file:")) {
-			fs = Paths.get("/").getFileSystem();
-		} else {
-			fs = FileSystems.newFileSystem(
-					URI.create("vfs:" + vfsUri), 
-					env);
-		}		
-		// zip file
+        String vfsUri = vfsConf[0];
+        FileSystem fs;
+
+        if (vfsUri.startsWith("file:")) {
+            fs = Paths.get("/").getFileSystem();
+        } else {
+            fs = FileSystems.newFileSystem(
+                    URI.create("vfs:" + vfsUri),
+                    env);
+        }
+        // zip file
 //		Path basePath = fs.getRootDirectories().iterator().next().resolve("store.conf.ttl");
 //		Path basePath = Paths.get("/tmp/gitalog/store.conf");
 //		Path basePath = fs.getRootDirectories().iterator().next()
-//				 .resolve("var").resolve("www")				
+//				 .resolve("var").resolve("www")
 //				.resolve("webdav").resolve("gitalog");
 
-		Path basePath = fs.getRootDirectories().iterator().next();
-		for (int i = 1; i < vfsConf.length; ++i) {
-			String segment = vfsConf[i];
-			basePath = basePath.resolve(segment);
-		}		
-		
-		StoreDefinition sd = ModelFactory.createDefaultModel().createResource().as(StoreDefinition.class)
-				.setStorePath("store")
-				.setIndexPath("index")
-				.addIndex("http://dataid.dbpedia.org/ns/core#group", "group", RdfTermIndexerFactoryIriToFolder.class)
-				.addIndex("http://purl.org/dc/terms/hasVersion", "version", RdfIndexerFactoryLexicalForm.class)
-				.addIndex(DCAT.downloadURL.asNode(), "downloadUrl", RdfTermIndexerFactoryIriToFolder.class)
-				.addIndex(DCTerms.identifier.asNode(), "identifier", RdfIndexerFactoryLexicalForm.class);
+        Path basePath = fs.getRootDirectories().iterator().next();
+        for (int i = 1; i < vfsConf.length; ++i) {
+            String segment = vfsConf[i];
+            basePath = basePath.resolve(segment);
+        }
 
-		DatasetGraph dg = DifsFactory.newInstance()
-				.setStoreDefinition(sd)
-				.setUseJournal(useJournal)
-				.setSymbolicLinkStrategy(SymbolicLinkStrategies.FILE)
-				.setConfigFile(basePath)
+        StoreDefinition sd = ModelFactory.createDefaultModel().createResource().as(StoreDefinition.class)
+                .setStorePath("store")
+                .setIndexPath("index")
+                .addIndex("http://dataid.dbpedia.org/ns/core#group", "group", RdfTermIndexerFactoryIriToFolder.class)
+                .addIndex("http://purl.org/dc/terms/hasVersion", "version", RdfIndexerFactoryLexicalForm.class)
+                .addIndex(DCAT.downloadURL.asNode(), "downloadUrl", RdfTermIndexerFactoryIriToFolder.class)
+                .addIndex(DCTerms.identifier.asNode(), "identifier", RdfIndexerFactoryLexicalForm.class);
+
+        DatasetGraph dg = DifsFactory.newInstance()
+                .setStoreDefinition(sd)
+                .setUseJournal(useJournal)
+                .setSymbolicLinkStrategy(SymbolicLinkStrategies.FILE)
+                .setConfigFile(basePath)
 //				.addIndex(RDF.Nodes.type, "type", DatasetGraphIndexerFromFileSystem::uriNodeToPath)
 //				.addIndex(NodeFactory.createURI("http://dataid.dbpedia.org/ns/core#group"), "group", DatasetGraphIndexerFromFileSystem::uriNodeToPath)
 //				.addIndex(NodeFactory.createURI("http://purl.org/dc/terms/hasVersion"), "version", DatasetGraphIndexerFromFileSystem::iriOrLexicalFormToToPath)
 //				.addIndex(DCAT.downloadURL.asNode(), "downloadUrl", DatasetGraphIndexerFromFileSystem::uriNodeToPath)
 //				// .addIndex(RDF.Nodes.type, "type", DatasetGraphIndexerFromFileSystem::uriNodeToPath)
 //				.addIndex(DCTerms.identifier.asNode(), "identifier", DatasetGraphIndexerFromFileSystem::iriOrLexicalFormToToPath)
-				.connect();
-		Dataset d = DatasetFactory.wrap(dg);
+                .connect();
+        Dataset d = DatasetFactory.wrap(dg);
 
-		if (false) {
-			Txn.executeWrite(d, () -> {
-				d.asDatasetGraph().delete(RDF.Nodes.first, RDF.Nodes.first, RDF.Nodes.type, RDF.Nodes.Property);
-			});
-		}
+        if (false) {
+            Txn.executeWrite(d, () -> {
+                d.asDatasetGraph().delete(RDF.Nodes.first, RDF.Nodes.first, RDF.Nodes.type, RDF.Nodes.Property);
+            });
+        }
 
-		if (false) {
-			Txn.executeWrite(d, () -> {
-				String file = "/home/raven/Datasets/databus/dataset-per-graph.sorted.trig";
+        if (false) {
+            Txn.executeWrite(d, () -> {
+                String file = "/home/raven/Datasets/databus/dataset-per-graph.sorted.trig";
 //				 String file = "/home/raven/Projects/Eclipse/cord19-rdf/rdfize/data-1000.trig";
-				RDFDataMgr.read(dg, file);
-			});
-		}
+                RDFDataMgr.read(dg, file);
+            });
+        }
 
-		if (true) {
-			String queryStr;
-			queryStr =
-					"SELECT * { GRAPH ?g {"
-					+ "  ?s <http://dataid.dbpedia.org/ns/core#group> <https://databus.dbpedia.org/jan/dbpedia-lookup> ."
-					+ "  ?s <http://dataid.dbpedia.org/ns/core#artifact> <https://databus.dbpedia.org/jan/dbpedia-lookup/index> ."
-					+ "  ?s ?p ?o "
-					+ "}}";
+        if (true) {
+            String queryStr;
+            queryStr =
+                    "SELECT * { GRAPH ?g {"
+                    + "  ?s <http://dataid.dbpedia.org/ns/core#group> <https://databus.dbpedia.org/jan/dbpedia-lookup> ."
+                    + "  ?s <http://dataid.dbpedia.org/ns/core#artifact> <https://databus.dbpedia.org/jan/dbpedia-lookup/index> ."
+                    + "  ?s ?p ?o "
+                    + "}}";
 //			String queryStr =
 //					"SELECT * { GRAPH <http://akswnc7.informatik.uni-leipzig.de/dav/dbpedia-lookup/index/2020.09.10/dataid.ttl#Dataset> {"
 //					+ "  ?s <http://dataid.dbpedia.org/ns/core#group> <https://databus.dbpedia.org/jan/dbpedia-lookup> ."
@@ -281,82 +289,82 @@ public class MainPlayground {
 //					+ "}}";
 
 //			queryStr = "SELECT DISTINCT ?t { GRAPH ?g { ?s a ?t } }";
-			//queryStr = "SELECT * { GRAPH ?g { ?s ?p ?o } } LIMIT 10";
-			System.out.println(queryStr);
-			
-			Query query = QueryFactory.create(queryStr);
-			
-			
-			
-			// Op op = Algebra.toQuadForm(Algebra.compile(query));
+            //queryStr = "SELECT * { GRAPH ?g { ?s ?p ?o } } LIMIT 10";
+            System.out.println(queryStr);
+
+            Query query = QueryFactory.create(queryStr);
+
+
+
+            // Op op = Algebra.toQuadForm(Algebra.compile(query));
 //	        Context context = ARQ.getContext().copy() ;
 //	        context.set(ARQConstants.sysCurrentTime, NodeFactoryExtra.nowAsDateTime()) ;
-//	        ExecutionContext env = new ExecutionContext(context, null, null, null) ; 
+//	        ExecutionContext env = new ExecutionContext(context, null, null, null) ;
 //
 //			QC.execute(op, BindingFactory.root(), env);
 //			new QueryExecutionBase(query, d, context, null)
-			
-			
-			// try (QueryExecution qe = QueryExecutionFactory.create(queryStr, DatasetFactory.wrap(dg))) {
-			
-			if (true) {
-				Dataset dataset = DatasetFactory.wrap(dg);
-				Txn.executeRead(dataset, () -> {
-					try (QueryExecution qe = QueryExecutionFactoryQuadForm.create(query, dataset)) {
-						ResultSetMgr.write(System.out, qe.execSelect(), ResultSetLang.RS_Text);
-					}
-				});			
-			}
-			
-			Node p = NodeFactory.createURI("http://dataid.dbpedia.org/ns/core#group");
-			Node o = NodeFactory.createURI("https://databus.dbpedia.org/jan/dbpedia-lookup");
-			
+
+
+            // try (QueryExecution qe = QueryExecutionFactory.create(queryStr, DatasetFactory.wrap(dg))) {
+
+            if (true) {
+                Dataset dataset = DatasetFactory.wrap(dg);
+                Txn.executeRead(dataset, () -> {
+                    try (QueryExecution qe = QueryExecutionFactoryQuadForm.create(query, dataset)) {
+                        ResultSetMgr.write(System.out, qe.execSelect(), ResultSetLang.RS_Text);
+                    }
+                });
+            }
+
+            Node p = NodeFactory.createURI("http://dataid.dbpedia.org/ns/core#group");
+            Node o = NodeFactory.createURI("https://databus.dbpedia.org/jan/dbpedia-lookup");
+
 //			Node s = NodeFactory.createURI("http://example.org/test");
 //			dg.delete(s, s, p, o);
 //			dg.add(s, s, p, o);
-			
-			
+
+
 //			Node p = Node.ANY, DCTerms.identifier.asNode();
 //			Node o = NodeFactory.createLiteral("38a99f0e49b70f41d3774ed3127e06de01dc766f")
 //			dg.find(Node.ANY, Node.ANY, p, o)
 //				.forEachRemaining(x -> System.out.println("Found: " + x));
-		}
+        }
 //
 
-		if (false) {
-			Txn.executeWrite(d, () -> {
+        if (false) {
+            Txn.executeWrite(d, () -> {
 //				d.asDatasetGraph().add(RDF.Nodes.type, RDF.Nodes.type, RDF.Nodes.type, RDF.Nodes.Property);
 //				d.asDatasetGraph().add(RDF.Nodes.first, RDF.Nodes.first, RDF.Nodes.type, RDF.Nodes.Property);
-			});
-		}
-		
-		
-		SparqlService ss = new SparqlServiceImpl(
-				new QueryExecutionFactoryDataset(d, null, (qu, da, co) -> QueryEngineQuadForm.factory),
-				new UpdateExecutionFactoryDataset(d, null, UpdateProcessorFactoryQuadForm::create));
-	
-		SparqlServiceFactory ssf = (uri, dd, httpClient) -> ss;
-		
-		Server server = FactoryBeanSparqlServer.newInstance()
-				.setPort(7531)
-				.setSparqlServiceFactory(ssf)
-				.create();
-		
+            });
+        }
+
+
+        SparqlService ss = new SparqlServiceImpl(
+                new QueryExecutionFactoryDataset(d, null, (qu, da, co) -> QueryEngineQuadForm.factory),
+                new UpdateExecutionFactoryDataset(d, null, UpdateProcessorFactoryQuadForm::create));
+
+        SparqlServiceFactory ssf = (uri, dd, httpClient) -> ss;
+
+        Server server = FactoryBeanSparqlServer.newInstance()
+                .setPort(7531)
+                .setSparqlServiceFactory(ssf)
+                .create();
+
 //		FusekiServer server = FusekiServer.create()
 //				.port(3030)
 //				.add("/rdf", d)
 //				.enableCors(true)
 //				.build();
-		System.out.println("Starting server");
-		server.start();
-		server.join();
-		System.out.println();
+        System.out.println("Starting server");
+        server.start();
+        server.join();
+        System.out.println();
 
 //		RDFDataMgr.write(System.out, d, RDFFormat.TRIG_PRETTY);
-		
+
 
 //		d.asDatasetGraph().find(Node.ANY, Node.ANY, RDF.Nodes.type, RDF.Nodes.Property)
 //			.forEachRemaining(x -> System.out.println("Got result: " + x));
-		
-	}
+
+    }
 }
