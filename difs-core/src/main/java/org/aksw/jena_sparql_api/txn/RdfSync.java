@@ -1,18 +1,8 @@
 package org.aksw.jena_sparql_api.txn;
 
-import java.io.InputStream;
-import java.nio.file.Path;
-import java.time.Instant;
-
-import org.aksw.jena_sparql_api.rx.DatasetGraphFactoryEx;
-import org.apache.jena.riot.Lang;
-import org.apache.jena.riot.RDFDataMgr;
-import org.apache.jena.riot.RDFFormat;
-import org.apache.jena.sparql.core.DatasetGraph;
-
 //public class RdfSync {
 //	/**
-//	 * 
+//	 *
 //	 * @param path The folder for the resource (not the data file itself)
 //	 * @return
 //	 */

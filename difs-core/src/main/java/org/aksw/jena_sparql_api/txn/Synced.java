@@ -1,9 +1,5 @@
 package org.aksw.jena_sparql_api.txn;
 
-import java.time.Instant;
-import java.util.function.BiConsumer;
-import java.util.function.Function;
-
 /** An instance T backed by an entity E. The entity is typically a file. */
 //public class Synced<E, T>
 //{
@@ -17,7 +13,7 @@ import java.util.function.Function;
 //
 //	// Saving a non-dirty entity is a no-op
 //	protected boolean isDirty;
-//	
+//
 //
 //	public Synced(
 //			E entity,
@@ -30,32 +26,32 @@ import java.util.function.Function;
 //		this.loader = loader;
 //		this.getLastModifiedDate = getLastModifiedDate;
 //	}
-//	
+//
 //	public T getOriginalState() {
-//		
+//
 //	}
-//	
+//
 //	public T getCurrentState() {
-//		
+//
 //	}
-//	
+//
 //	public E getEntity() {
 //		return entity;
 //	}
-//	
+//
 //	public void load() {
 //		lastModifiedDate = getLastModifiedDate.apply(entity);
 //		instance = loader.apply(entity);
 //	}
-//	
+//
 //	public T get() {
 //		if (instance == null) {
 //			load();
 //		}
-//		
+//
 //		return instance;
 //	}
-//	
+//
 //	public Synced setDirty(boolean isDirty) {
 //		this.isDirty = isDirty;
 //		return this;
@@ -63,11 +59,11 @@ import java.util.function.Function;
 ////	public Synced set(T instance) {
 ////		this.instance = instance;
 ////	}
-//	
+//
 //	public void save() {
 //		if (isDirty) {
 //			saver.accept(entity, instance);
 //		}
 //	}
 //}
-//	
+//
