@@ -5,6 +5,7 @@ import java.util.Iterator;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.aksw.commons.collections.utils.StreamUtils;
@@ -60,7 +61,7 @@ public class TxnUtils {
      * @return
      * @throws IOException
      */
-    public static Set<GraphPath<Node, Triple>> detectDeadLocks(TxnMgr txnMgr) throws IOException {
+    public static Set<GraphPath<Node, Triple>> detectDeadLocksRaw(TxnMgr txnMgr) throws IOException {
 
         Graph graph = GraphFactory.createDefaultGraph();
         Function<String, Node> nodeFactory = MemoizedFunctionImpl.create(str -> NodeFactory.createURI("urn:" + str));
@@ -100,6 +101,16 @@ public class TxnUtils {
         return result;
 //				new CycleDetector<>(new PseudoGraphJenaGraph(graph))
 //				.findCycles();
+    }
+
+    public static Set<String> graphPathsToTxnIds(Set<GraphPath<Node, Triple>> graphPaths) throws IOException {
+        Set<String> result = graphPaths.stream()
+            .flatMap(x -> x.getVertexList().stream())
+            .map(Node::getURI)
+            .map(x -> x.substring(4)) // '4' is used to cut of the "urn:" prefix
+            .collect(Collectors.toSet());
+        return result;
+
     }
 
 

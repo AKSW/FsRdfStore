@@ -10,6 +10,13 @@ import org.apache.jena.graph.Node;
 import org.apache.jena.graph.NodeFactory;
 import org.apache.jena.rdf.model.Resource;
 
+/**
+ * Interface capturing the configuration options of the
+ * fs-rdf-store.
+ *
+ * @author raven
+ *
+ */
 @ResourceView
 public interface StoreDefinition
     extends Resource
@@ -29,6 +36,12 @@ public interface StoreDefinition
     @Iri(DIFSTerms.index)
     Set<IndexDefinition> getIndexDefinition();
 
+    /**
+     * The heartbeat interval is a parameter common to all transactions
+     * accessing the repository.
+     *
+     * @return
+     */
     @Iri(DIFSTerms.heartbeatInterval)
     Long getHeartbeatInterval();
     StoreDefinition setHeartbeatInterval(Long heartbeatInterval);

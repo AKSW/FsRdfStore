@@ -7,6 +7,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -23,6 +24,7 @@ import org.aksw.jena_sparql_api.txn.SyncedDataset;
 import org.aksw.jena_sparql_api.txn.api.Txn;
 import org.aksw.jena_sparql_api.txn.api.TxnMgr;
 import org.aksw.jena_sparql_api.txn.api.TxnResourceApi;
+import org.aksw.jena_sparql_api.txn.api.TxnUtils;
 import org.aksw.jena_sparql_api.utils.IteratorClosable;
 import org.apache.jena.graph.Graph;
 import org.apache.jena.graph.Node;
@@ -39,6 +41,7 @@ import org.apache.jena.sparql.core.GraphView;
 import org.apache.jena.sparql.core.Quad;
 import org.apache.jena.sparql.core.Transactional;
 import org.apache.jena.util.iterator.ClosableIterator;
+import org.jgrapht.GraphPath;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -356,9 +359,39 @@ public class DatasetGraphFromTxnMgr
     }
 
 
+    protected void acquireResourceLock(Txn txn, TxnResourceApi api) throws IOException {
+        // FIXME If the lock cannot be acquired check for deadlocks and stale txns
+        try {
+            api.lock(txn.isWrite());
+        } catch (Exception e) {
+
+            // Cancel any stale txns
+            cleanupStaleTxns();
+
+            // If after the clean up this txn is part of a cycle then abort it
+            Set<GraphPath<Node, Triple>> cycles = TxnUtils.detectDeadLocksRaw(txnMgr);
+            Set<String> txnIds = TxnUtils.graphPathsToTxnIds(cycles);
+
+            String txnId = txn.getId();
+
+            if (txnIds.contains(txnId)) {
+                rollbackOrEnd(txn);
+            }
+
+        }
+    }
+
+
     public DatasetGraph mapToDatasetGraph(Txn local, TxnResourceApi api) {
         api.declareAccess();
-        api.lock(local.isWrite());
+
+        // api.lock(local.isWrite());
+        try {
+            acquireResourceLock(local, api);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
 //		Txn txn = local();
 //		if (txn != null) {
 //			api.lock(txn.isWrite());
@@ -483,7 +516,13 @@ public class DatasetGraphFromTxnMgr
             // The lock is held until the end of the transaction
             TxnResourceApi api = local().getResourceApi(key); //iri);
             api.declareAccess();
-            api.lock(true);
+
+            try {
+                acquireResourceLock(local(), api);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+            // api.lock(true);
 
             SyncedDataset synced;
             try {
@@ -713,4 +752,28 @@ public class DatasetGraphFromTxnMgr
         return prefixes;
     }
 
+
+    public void cleanupStaleTxns() throws IOException {
+        logger.info("Checking existing txns...");
+        try (Stream<Txn> stream = txnMgr.streamTxns()) {
+            stream.forEach(txn -> {
+                try {
+                    // if (txn.isStale()) {
+                    if (txn.claim()) {
+                        rollbackOrEnd(txn);
+                    }
+                } catch (Exception e) {
+                    logger.warn("Failed to process txn", e);
+                }
+            });
+        }
+    }
+
+    public void rollbackOrEnd(Txn txn) throws IOException {
+        logger.info("Detected stale txn; applying rollback: " + txn.getId());
+        if (!txn.isCommit()) {
+            txn.addRollback();
+        }
+        DatasetGraphFromTxnMgr.applyJournal(txn, getSyncCache());
+    }
 }

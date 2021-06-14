@@ -178,6 +178,7 @@ public class TxnMgrImpl
 
     @Override
     public Stream<Txn> streamTxns() throws IOException {
+        // The txn folder may not exist yet
         Stream<Path> baseStream = Files.exists(txnBasePath)
                 ? Files.list(txnBasePath)
                 : Stream.empty();

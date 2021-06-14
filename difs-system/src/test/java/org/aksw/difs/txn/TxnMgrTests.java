@@ -55,7 +55,7 @@ public class TxnMgrTests {
             r1b.declareAccess();
     //		r1b.getTxnResourceLock().writeLock().lock();
 
-            Set<GraphPath<Node, Triple>> cycles = TxnUtils.detectDeadLocks(txnMgr);
+            Set<GraphPath<Node, Triple>> cycles = TxnUtils.detectDeadLocksRaw(txnMgr);
             Assert.assertEquals(1, cycles.size());
         } finally {
             txnMgr.deleteResources();

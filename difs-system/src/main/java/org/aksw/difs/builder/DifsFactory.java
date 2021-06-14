@@ -36,7 +36,6 @@ import org.aksw.jena_sparql_api.lock.LockManagerPath;
 import org.aksw.jena_sparql_api.lock.ThreadLockManager;
 import org.aksw.jena_sparql_api.txn.ResourceRepository;
 import org.aksw.jena_sparql_api.txn.TxnMgrImpl;
-import org.aksw.jena_sparql_api.txn.api.Txn;
 import org.aksw.jena_sparql_api.txn.api.TxnMgr;
 import org.apache.jena.dboe.sys.ProcessUtils;
 import org.apache.jena.graph.Node;
@@ -317,23 +316,7 @@ public class DifsFactory {
         DatasetGraphFromTxnMgr result = new DatasetGraphFromTxnMgr(useJournal, txnMgr, indexers);
 
         // Check for stale transactions
-        logger.info("Checking existing txns...");
-        try (Stream<Txn> stream = txnMgr.streamTxns()) {
-            stream.forEach(txn -> {
-                try {
-                    // if (txn.isStale()) {
-                    if (txn.claim()) {
-                        logger.info("Detected stale txn; applying rollback: " + txn.getId());
-                        if (!txn.isCommit()) {
-                            txn.addRollback();
-                        }
-                        DatasetGraphFromTxnMgr.applyJournal(txn, result.getSyncCache());
-                    }
-                } catch (Exception e) {
-                    logger.warn("Failed to process txn", e);
-                }
-            });
-        }
+        result.cleanupStaleTxns();
 
         logger.info("Done checking existing txns");
 
@@ -342,4 +325,5 @@ public class DifsFactory {
 
         return result;
     }
+
 }
