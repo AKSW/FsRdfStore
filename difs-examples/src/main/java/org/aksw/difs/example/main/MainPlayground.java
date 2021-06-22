@@ -34,24 +34,24 @@ import org.aksw.jena_sparql_api.core.UpdateExecutionFactoryDataset;
 import org.aksw.jena_sparql_api.io.binseach.BinarySearcher;
 import org.aksw.jena_sparql_api.io.binseach.BlockSources;
 import org.aksw.jena_sparql_api.server.utils.FactoryBeanSparqlServer;
+import org.aksw.jena_sparql_api.sparql.ext.fs.OpExecutorServiceOrFile;
 import org.apache.commons.lang3.time.StopWatch;
 import org.apache.commons.vfs2.FileObject;
 import org.apache.commons.vfs2.FileSystemManager;
 import org.apache.commons.vfs2.FileSystemOptions;
 import org.apache.commons.vfs2.RandomAccessContent;
 import org.apache.commons.vfs2.VFS;
-import org.apache.commons.vfs2.provider.http4.Http4FileSystemConfigBuilder;
 import org.apache.commons.vfs2.provider.http5.Http5FileSystemConfigBuilder;
 import org.apache.commons.vfs2.provider.webdav.WebdavFileSystemConfigBuilder;
 import org.apache.commons.vfs2.util.RandomAccessMode;
-import org.apache.http.conn.HttpClientConnectionManager;
-import org.apache.http.impl.conn.BasicHttpClientConnectionManager;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.NodeFactory;
+import org.apache.jena.query.ARQ;
 import org.apache.jena.query.Dataset;
 import org.apache.jena.query.DatasetFactory;
 import org.apache.jena.query.Query;
 import org.apache.jena.query.QueryExecution;
+import org.apache.jena.query.QueryExecutionFactory;
 import org.apache.jena.query.QueryFactory;
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.ModelFactory;
@@ -62,6 +62,7 @@ import org.apache.jena.riot.RIOT;
 import org.apache.jena.riot.ResultSetMgr;
 import org.apache.jena.riot.resultset.ResultSetLang;
 import org.apache.jena.sparql.core.DatasetGraph;
+import org.apache.jena.sparql.engine.main.QC;
 import org.apache.jena.sys.JenaSystem;
 import org.apache.jena.system.Txn;
 import org.apache.jena.vocabulary.DCAT;
@@ -74,8 +75,24 @@ import com.sshtools.vfs2nio.Vfs2NioFileSystemProvider;
 public class MainPlayground {
 
     public static void main(String[] args) throws Exception {
-         mainVfsHttpTest(args);
-//        mainBinSearch(args);
+            QC.setFactory(ARQ.getContext(), execCxt -> {
+//                execCxt.getContext().set(ARQ.stageGenerator, StageBuilder.executeInline);
+                return new OpExecutorServiceOrFile(execCxt);
+            });
+
+
+        String queryStr = "SELECT * { SERVICE <x-binsearch:vfs:http4://localhost/webdav/dnb-all_lds_20200213.sorted.nt.bz2> { <https://d-nb.info/1000000028> ?p ?o . ?o ?x ?y} }";
+
+        Dataset dataset = DatasetFactory.create();
+        try (QueryExecution qe = QueryExecutionFactory.create(queryStr, dataset)) {
+            ResultSetMgr.write(System.out, qe.execSelect(), ResultSetLang.RS_Text);
+        }
+
+
+//        try (InputStream in = Files.newInputStream(Paths.get("/home/raven/tmp/data.nt.bz2"))) {
+//            EntityInfo info = RDFDataMgrEx.probeEntityInfo(in, RDFDataMgrEx.DEFAULT_PROBE_LANGS);
+//            System.out.println(info);
+//        }
     }
 
     public static void mainTestNoBase(String[] args) throws Exception {
