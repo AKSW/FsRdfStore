@@ -18,7 +18,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
-import org.aksw.common.io.util.symlink.SymbolicLinkStrategies;
+import org.aksw.commons.io.util.symlink.SymbolicLinkStrategies;
 import org.aksw.difs.builder.DifsFactory;
 import org.aksw.difs.engine.QueryEngineQuadForm;
 import org.aksw.difs.engine.QueryExecutionFactoryQuadForm;
@@ -70,24 +70,47 @@ import org.apache.jena.vocabulary.DCTerms;
 import org.apache.jena.vocabulary.RDF;
 import org.eclipse.jetty.server.Server;
 
+import com.google.common.base.Stopwatch;
 import com.sshtools.vfs2nio.Vfs2NioFileSystemProvider;
 
 public class MainPlayground {
 
     public static void main(String[] args) throws Exception {
-            QC.setFactory(ARQ.getContext(), execCxt -> {
+        QC.setFactory(ARQ.getContext(), execCxt -> {
 //                execCxt.getContext().set(ARQ.stageGenerator, StageBuilder.executeInline);
-                return new OpExecutorServiceOrFile(execCxt);
-            });
+            return new OpExecutorServiceOrFile(execCxt);
+        });
+
+        String queryStr;
+
+//        queryStr = "SELECT * { SERVICE <x-binsearch:vfs:http4://localhost/webdav/dnb-all_lds_20200213.sorted.nt.bz2> { <https://d-nb.info/1000000028> ?p ?o . } }";
+//        queryStr = "SELECT * { SERVICE <x-binsearch:vfs:http4://localhost/webdav/dnb-all_lds_20200213.sorted.nt.bz2> { <https://d-nb.info/1000000028> ?p ?o . ?o ?x ?y} }";
+        // String queryStr = "SELECT * { SERVICE <x-binsearch:vfs:http4s://databus.dbpedia.org/data/databus/databus-data/2019.10.20/databus-data.nt.bz2> { <http://akswnc7.informatik.uni-leipzig.de/dstreitmatter/dbpedia-diff/labels-diff/2019.09.02/dataid.ttl#Dataset> ?p ?o . } }";
+        // String queryStr = "SELECT * { SERVICE <x-binsearch:file:///home/raven/Datasets/databus-data.nt.bz2> { <http://akswnc7.informatik.uni-leipzig.de/dstreitmatter/dbpedia-diff/labels-diff/2019.09.02/dataid.ttl#Dataset> ?p ?o . } }";
 
 
-        String queryStr = "SELECT * { SERVICE <x-binsearch:vfs:http4://localhost/webdav/dnb-all_lds_20200213.sorted.nt.bz2> { <https://d-nb.info/1000000028> ?p ?o . ?o ?x ?y} }";
+        // first
+//        queryStr = "SELECT * { SERVICE <x-binsearch:vfs:http4s://databus.dbpedia.org/dnkg/cartridge-input/kb/2020.09.29/kb_partition=person_set=thes_content=facts_origin=export.nt.bz2> { <http://data.bibliotheken.nl/id/thes/p067460208> ?p ?o } }";
 
+        // last
+//        queryStr = "SELECT * { SERVICE <x-binsearch:vfs:http4s://databus.dbpedia.org/dnkg/cartridge-input/kb/2020.09.29/kb_partition=person_set=thes_content=facts_origin=export.nt.bz2> { <http://data.bibliotheken.nl/id/thes/p428736572> ?p ?o } }";
+
+        // middle
+//        queryStr = "SELECT * { SERVICE <x-binsearch:vfs:http4s://databus.dbpedia.org/dnkg/cartridge-input/kb/2020.09.29/kb_partition=person_set=thes_content=facts_origin=export.nt.bz2> { <http://data.bibliotheken.nl/id/thes/p153093994> ?p ?o } }";
+
+
+         queryStr = "SELECT * { SERVICE <x-binsearch:vfs:http4s://downloads.dbpedia.org/repo/dbpedia/text/nif-page-structure/2020.02.01/nif-page-structure_lang=bg.ttl.bz2> { <http://bg.dbpedia.org/resource/Европейско_първенство_по_волейбол_за_жени_2011?dbpv=2020-02&nif=section&char=238,416> ?p ?o . } }";
+
+        for (int i = 0; i < 10; ++i) {
+
+        Stopwatch sw = Stopwatch.createStarted();
         Dataset dataset = DatasetFactory.create();
         try (QueryExecution qe = QueryExecutionFactory.create(queryStr, dataset)) {
             ResultSetMgr.write(System.out, qe.execSelect(), ResultSetLang.RS_Text);
         }
+        System.out.println("Time taken: " + sw.elapsed(TimeUnit.MILLISECONDS) * 0.001f);
 
+        }
 
 //        try (InputStream in = Files.newInputStream(Paths.get("/home/raven/tmp/data.nt.bz2"))) {
 //            EntityInfo info = RDFDataMgrEx.probeEntityInfo(in, RDFDataMgrEx.DEFAULT_PROBE_LANGS);

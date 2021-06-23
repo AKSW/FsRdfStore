@@ -10,8 +10,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.aksw.common.io.util.symlink.SymbolicLinkStrategy;
 import org.aksw.commons.io.util.PathUtils;
+import org.aksw.commons.io.util.symlink.SymbolicLinkStrategy;
 import org.aksw.jena_sparql_api.lock.db.api.ReadWriteLockWithOwnership;
 import org.aksw.jena_sparql_api.lock.db.api.LockStore;
 import org.aksw.jena_sparql_api.lock.db.api.ResourceLock;

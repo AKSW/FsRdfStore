@@ -20,8 +20,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.aksw.common.io.util.symlink.SymbolicLinkStrategy;
-import org.aksw.common.io.util.symlink.SymbolicLinkStrategyStandard;
+import org.aksw.commons.io.util.symlink.SymbolicLinkStrategy;
+import org.aksw.commons.io.util.symlink.SymbolicLinkStrategyStandard;
 import org.aksw.difs.index.api.RdfTermIndexerFactory;
 import org.aksw.difs.sys.vocab.jena.DIFS;
 import org.aksw.difs.system.domain.IndexDefinition;

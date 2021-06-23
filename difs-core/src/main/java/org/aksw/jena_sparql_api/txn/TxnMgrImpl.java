@@ -7,7 +7,7 @@ import java.time.temporal.TemporalAmount;
 import java.util.Random;
 import java.util.stream.Stream;
 
-import org.aksw.common.io.util.symlink.SymbolicLinkStrategy;
+import org.aksw.commons.io.util.symlink.SymbolicLinkStrategy;
 import org.aksw.jena_sparql_api.lock.LockManager;
 import org.aksw.jena_sparql_api.lock.db.api.LockStore;
 import org.aksw.jena_sparql_api.lock.db.impl.LockStoreImpl;

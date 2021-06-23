@@ -7,7 +7,7 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.function.Function;
 
-import org.aksw.common.io.util.symlink.SymbolicLinkStrategy;
+import org.aksw.commons.io.util.symlink.SymbolicLinkStrategy;
 import org.aksw.jena_sparql_api.txn.FileUtilsX;
 
 public class LockFromLink
