@@ -83,6 +83,12 @@ public class MainPlayground {
 
         String queryStr;
 
+        System.out.println("http".replaceAll("^http(?!\\d+)", "http4"));
+        System.out.println("https".replaceAll("^http(?!\\d+)", "http4"));
+        System.out.println("http3".replaceAll("^http(?!\\d+)", "http4"));
+        System.out.println("http3s".replaceAll("^http(?!\\d+)", "http4"));
+
+
 //        queryStr = "SELECT * { SERVICE <x-binsearch:vfs:http4://localhost/webdav/dnb-all_lds_20200213.sorted.nt.bz2> { <https://d-nb.info/1000000028> ?p ?o . } }";
 //        queryStr = "SELECT * { SERVICE <x-binsearch:vfs:http4://localhost/webdav/dnb-all_lds_20200213.sorted.nt.bz2> { <https://d-nb.info/1000000028> ?p ?o . ?o ?x ?y} }";
         // String queryStr = "SELECT * { SERVICE <x-binsearch:vfs:http4s://databus.dbpedia.org/data/databus/databus-data/2019.10.20/databus-data.nt.bz2> { <http://akswnc7.informatik.uni-leipzig.de/dstreitmatter/dbpedia-diff/labels-diff/2019.09.02/dataid.ttl#Dataset> ?p ?o . } }";
@@ -90,7 +96,7 @@ public class MainPlayground {
 
 
         // first
-//        queryStr = "SELECT * { SERVICE <x-binsearch:vfs:http4s://databus.dbpedia.org/dnkg/cartridge-input/kb/2020.09.29/kb_partition=person_set=thes_content=facts_origin=export.nt.bz2> { <http://data.bibliotheken.nl/id/thes/p067460208> ?p ?o } }";
+        queryStr = "SELECT * { SERVICE <x-binsearch:vfs:https://databus.dbpedia.org/dnkg/cartridge-input/kb/2020.09.29/kb_partition=person_set=thes_content=facts_origin=export.nt.bz2> { <http://data.bibliotheken.nl/id/thes/p067460208> ?p ?o } }";
 
         // last
 //        queryStr = "SELECT * { SERVICE <x-binsearch:vfs:http4s://databus.dbpedia.org/dnkg/cartridge-input/kb/2020.09.29/kb_partition=person_set=thes_content=facts_origin=export.nt.bz2> { <http://data.bibliotheken.nl/id/thes/p428736572> ?p ?o } }";
@@ -99,7 +105,7 @@ public class MainPlayground {
 //        queryStr = "SELECT * { SERVICE <x-binsearch:vfs:http4s://databus.dbpedia.org/dnkg/cartridge-input/kb/2020.09.29/kb_partition=person_set=thes_content=facts_origin=export.nt.bz2> { <http://data.bibliotheken.nl/id/thes/p153093994> ?p ?o } }";
 
 
-         queryStr = "SELECT * { SERVICE <x-binsearch:vfs:http4s://downloads.dbpedia.org/repo/dbpedia/text/nif-page-structure/2020.02.01/nif-page-structure_lang=bg.ttl.bz2> { <http://bg.dbpedia.org/resource/Европейско_първенство_по_волейбол_за_жени_2011?dbpv=2020-02&nif=section&char=238,416> ?p ?o . } }";
+         queryStr = "SELECT * { SERVICE <x-binsearch:vfs:https://downloads.dbpedia.org/repo/dbpedia/text/nif-page-structure/2020.02.01/nif-page-structure_lang=bg.ttl.bz2> { <http://bg.dbpedia.org/resource/Европейско_първенство_по_волейбол_за_жени_2011?dbpv=2020-02&nif=section&char=238,416> ?p ?o . } }";
 
         for (int i = 0; i < 10; ++i) {
 
