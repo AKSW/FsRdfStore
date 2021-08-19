@@ -4,8 +4,8 @@ import java.io.IOException;
 import java.time.temporal.TemporalAmount;
 import java.util.stream.Stream;
 
+import org.aksw.jena_sparql_api.difs.main.ResourceRepository;
 import org.aksw.jena_sparql_api.lock.db.api.LockStore;
-import org.aksw.jena_sparql_api.txn.ResourceRepository;
 
 public interface TxnMgr
 {

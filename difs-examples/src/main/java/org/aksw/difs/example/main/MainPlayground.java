@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
+import org.aksw.commons.io.block.impl.BlockSources;
 import org.aksw.commons.io.util.symlink.SymbolicLinkStrategies;
 import org.aksw.difs.builder.DifsFactory;
 import org.aksw.difs.engine.QueryEngineQuadForm;
@@ -32,7 +33,8 @@ import org.aksw.jena_sparql_api.core.SparqlServiceFactory;
 import org.aksw.jena_sparql_api.core.SparqlServiceImpl;
 import org.aksw.jena_sparql_api.core.UpdateExecutionFactoryDataset;
 import org.aksw.jena_sparql_api.io.binseach.BinarySearcher;
-import org.aksw.jena_sparql_api.io.binseach.BlockSources;
+import org.aksw.jena_sparql_api.rx.RDFDataMgrEx;
+import org.aksw.jena_sparql_api.rx.entity.EntityInfo;
 import org.aksw.jena_sparql_api.server.utils.FactoryBeanSparqlServer;
 import org.aksw.jena_sparql_api.sparql.ext.fs.OpExecutorServiceOrFile;
 import org.apache.commons.lang3.time.StopWatch;
@@ -76,6 +78,24 @@ import com.sshtools.vfs2nio.Vfs2NioFileSystemProvider;
 public class MainPlayground {
 
     public static void main(String[] args) throws Exception {
+        mainX(args);
+    }
+
+    public static void mainZ(String[] args) throws Exception {
+
+        if (true) {
+            for (int i = 0; i < 10; ++i) {
+                String file = "/home/raven/tmp/data.nt.bz2";
+                file = "/home/raven/tmp/corrupted.nt.bz2";
+                try (InputStream in = Files.newInputStream(Paths.get(file))) {
+                    EntityInfo info = RDFDataMgrEx.probeEntityInfo(in, RDFDataMgrEx.DEFAULT_PROBE_LANGS);
+                    System.out.println(info);
+                }
+            }
+            return;
+        }
+
+
         QC.setFactory(ARQ.getContext(), execCxt -> {
 //                execCxt.getContext().set(ARQ.stageGenerator, StageBuilder.executeInline);
             return new OpExecutorServiceOrFile(execCxt);
@@ -118,10 +138,6 @@ public class MainPlayground {
 
         }
 
-//        try (InputStream in = Files.newInputStream(Paths.get("/home/raven/tmp/data.nt.bz2"))) {
-//            EntityInfo info = RDFDataMgrEx.probeEntityInfo(in, RDFDataMgrEx.DEFAULT_PROBE_LANGS);
-//            System.out.println(info);
-//        }
     }
 
     public static void mainTestNoBase(String[] args) throws Exception {

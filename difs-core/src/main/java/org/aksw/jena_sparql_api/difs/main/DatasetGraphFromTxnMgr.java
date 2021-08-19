@@ -19,7 +19,6 @@ import org.aksw.commons.util.array.Array;
 import org.aksw.jena_sparql_api.dataset.file.DatasetGraphIndexPlugin;
 import org.aksw.jena_sparql_api.txn.DatasetGraphFromFileSystem;
 import org.aksw.jena_sparql_api.txn.FileSync;
-import org.aksw.jena_sparql_api.txn.ResourceRepository;
 import org.aksw.jena_sparql_api.txn.SyncedDataset;
 import org.aksw.jena_sparql_api.txn.api.Txn;
 import org.aksw.jena_sparql_api.txn.api.TxnMgr;

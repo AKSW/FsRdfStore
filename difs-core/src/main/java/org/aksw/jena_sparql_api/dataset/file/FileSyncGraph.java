@@ -31,6 +31,8 @@ public class FileSyncGraph
 
     private static final Logger logger = LoggerFactory.getLogger(FileSyncGraph.class);
 
+    /** We use DatasetGraph rather than Dataset because we use special handling for
+     *  composed graphs such as DatasetGraphDiff */
     protected DatasetGraph dsg;
     protected Path path;
     protected RDFFormat rdfFormat;
