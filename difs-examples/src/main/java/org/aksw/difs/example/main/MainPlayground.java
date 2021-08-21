@@ -312,6 +312,7 @@ public class MainPlayground {
                 .setUseJournal(useJournal)
                 .setSymbolicLinkStrategy(SymbolicLinkStrategies.FILE)
                 .setConfigFile(basePath)
+                .setMaximumNamedGraphCacheSize(10000)
 //				.addIndex(RDF.Nodes.type, "type", DatasetGraphIndexerFromFileSystem::uriNodeToPath)
 //				.addIndex(NodeFactory.createURI("http://dataid.dbpedia.org/ns/core#group"), "group", DatasetGraphIndexerFromFileSystem::uriNodeToPath)
 //				.addIndex(NodeFactory.createURI("http://purl.org/dc/terms/hasVersion"), "version", DatasetGraphIndexerFromFileSystem::iriOrLexicalFormToToPath)

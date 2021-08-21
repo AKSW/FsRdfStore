@@ -50,6 +50,7 @@ import org.apache.jena.sparql.core.DatasetGraph;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Streams;
 import com.kstruct.gethostname4j.Hostname;
 
@@ -70,6 +71,8 @@ public class DifsFactory {
     protected boolean createIfNotExists;
 
     protected StoreDefinition storeDefinition;
+
+    protected long maximumNamedGraphCacheSize = -1; // -1 = unlimited
 
     protected boolean useJournal = true;
 
@@ -92,6 +95,12 @@ public class DifsFactory {
         this.createIfNotExists = createIfNotExists;
         return this;
     }
+
+    public DifsFactory setMaximumNamedGraphCacheSize(long size) {
+        this.maximumNamedGraphCacheSize = size;
+        return this;
+    }
+
 
     public static Stream<Resource> listResources(Model model, Collection<Property> properties) {
         return properties.stream()
@@ -313,7 +322,12 @@ public class DifsFactory {
             .map(this::loadIndexDefinition)
             .collect(Collectors.toList());
 
-        DatasetGraphFromTxnMgr result = new DatasetGraphFromTxnMgr(useJournal, txnMgr, indexers);
+        CacheBuilder<?, ?> namedGraphCacheBuilder = CacheBuilder.newBuilder();
+        if (maximumNamedGraphCacheSize > 0) {
+            namedGraphCacheBuilder.maximumSize(maximumNamedGraphCacheSize);
+        }
+
+        DatasetGraphFromTxnMgr result = new DatasetGraphFromTxnMgr(useJournal, txnMgr, indexers, namedGraphCacheBuilder);
 
         // Check for stale transactions
         result.cleanupStaleTxns();

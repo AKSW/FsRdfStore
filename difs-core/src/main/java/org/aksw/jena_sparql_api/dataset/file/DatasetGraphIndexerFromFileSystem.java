@@ -256,6 +256,7 @@ public class DatasetGraphIndexerFromFileSystem
 
                 String coreName = pathToFilename(tgtRelPath);
 
+
                 // Compute prefix/suffix
                 Path file = Paths.get(tgtFilename);
                 String tmpPrefix = MoreFiles.getNameWithoutExtension(file);
@@ -295,7 +296,7 @@ public class DatasetGraphIndexerFromFileSystem
                                 Path absTgt = SymLinkUtils.resolveSymLinkAbsolute(srcToTgt.getKey(), srcToTgt.getValue());
 
                                 String[] key = linkTargetToKey(absTgt);
-                                boolean r = Arrays.equals(key, idxRelPath);
+                                boolean r = Arrays.equals(key, tgtRelPath);
                                 return r;
                             })
                             .map(Entry::getKey)

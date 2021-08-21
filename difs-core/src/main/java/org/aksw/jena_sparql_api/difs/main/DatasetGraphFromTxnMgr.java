@@ -116,7 +116,7 @@ public class DatasetGraphFromTxnMgr
     }
 
     public DatasetGraphFromTxnMgr(boolean useJournal, TxnMgr txnMgr, Collection<DatasetGraphIndexPlugin> indexers, long maxCacheSize) {
-        this(useJournal, txnMgr, indexers, 	CacheBuilder.newBuilder().maximumSize(maxCacheSize));
+        this(useJournal, txnMgr, indexers, CacheBuilder.newBuilder().maximumSize(maxCacheSize));
     }
 
 //	public DatasetGraphFromTxnMgr(TxnMgr txnMgr, Collection<DatasetGraphIndexPlugin> indexers, CacheBuilder<?, ?> cacheBuilder) {
