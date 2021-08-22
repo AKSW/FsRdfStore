@@ -10,17 +10,17 @@ import org.apache.jena.sparql.modify.request.UpdateVisitor;
 import org.apache.jena.sparql.util.Context;
 
 public class UpdateEngineMainQuadForm
-	extends UpdateEngineMain
+    extends UpdateEngineMain
 {
-	public UpdateEngineMainQuadForm(DatasetGraph datasetGraph, Binding inputBinding, Context context) {
-		super(datasetGraph, inputBinding, context);
-	}
+    public UpdateEngineMainQuadForm(DatasetGraph datasetGraph, Binding inputBinding, Context context) {
+        super(datasetGraph, inputBinding, context);
+    }
 
     protected UpdateVisitor prepareWorker() {
-        return new UpdateEngineWorker(datasetGraph, inputBinding, context) ;
+        return new UpdateEngineWorkerQuadForm(datasetGraph, inputBinding, context) ;
     }
-    
-    
+
+
     public static UpdateEngineFactory getFactory() {
         return new UpdateEngineFactory()
         {
