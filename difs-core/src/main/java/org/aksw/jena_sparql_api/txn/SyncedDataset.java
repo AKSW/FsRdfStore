@@ -12,9 +12,13 @@ import java.util.Objects;
 import java.util.Set;
 
 import org.aksw.jena_sparql_api.rx.DatasetGraphFactoryEx;
+import org.aksw.jena_sparql_api.utils.DatasetGraphUtils;
+import org.aksw.jena_sparql_api.utils.DatasetUtils;
 import org.aksw.jena_sparql_api.utils.SetFromDatasetGraph;
 import org.aksw.jena_sparql_api.utils.model.DatasetGraphDiff;
 import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.apache.jena.ext.com.google.common.collect.Streams;
+import org.apache.jena.graph.Graph;
 import org.apache.jena.riot.Lang;
 import org.apache.jena.riot.RDFDataMgr;
 import org.apache.jena.riot.RDFFormat;
@@ -103,9 +107,12 @@ public class SyncedDataset {
     protected DatasetGraph originalState;
     protected DatasetGraphDiff diff = null;
 
-    public SyncedDataset(FileSync fileSync) {
+    protected boolean doNotWriteEmptyGraphs;
+
+    public SyncedDataset(FileSync fileSync, boolean doNotWriteEmptyGraphs) {
         super();
         this.fileSync = fileSync;
+        this.doNotWriteEmptyGraphs = doNotWriteEmptyGraphs;
     }
 
 
@@ -160,7 +167,7 @@ public class SyncedDataset {
             // FIXME The file may not exist but it may also be an authorization issue
             logger.warn("Access denied: " + ExceptionUtils.getRootCauseMessage(ex));
         } catch (NoSuchFileException ex) {
-            // Ignore
+            // Ignore - this leads to an empty dataset
         } catch (Exception ex) {
             throw new RuntimeException(ex);
         }
@@ -223,7 +230,7 @@ public class SyncedDataset {
         ensureLoaded();
     }
 
-    public DatasetGraph get() {
+    public DatasetGraphDiff get() {
         ensureLoaded();
         return diff;
     }
@@ -234,7 +241,11 @@ public class SyncedDataset {
      * @return
      */
     public boolean isDirty() {
-        boolean result = diff != null && !(diff.getAdded().isEmpty() && diff.getRemoved().isEmpty());
+        boolean result = diff != null && !(
+                diff.getAdded().isEmpty() &&
+                diff.getRemoved().isEmpty() &&
+                diff.getAddedGraphs().isEmpty() &&
+                diff.getRemovedGraphs().isEmpty());
         return result;
     }
 
@@ -265,13 +276,29 @@ public class SyncedDataset {
 //		this.instance = instance;
 //	}
 
+    /** Returns true if every graph (named or default) has zero triples */
+    public static boolean isEffectivelyEmpty(DatasetGraph dg) {
+        boolean result = Streams.stream(dg.listGraphNodes())
+            .allMatch(g -> {
+                Graph graph = dg.getGraph(g);
+                boolean r = graph.isEmpty();
+                return r;
+            });
+
+        return result;
+    }
+
     public void save() {
         if (isDirty()) {
             try {
                 ensureUpToDate();
 
                 fileSync.putContent(out -> {
-                    RDFDataMgr.write(out, diff, RDFFormat.TRIG_PRETTY);
+                    boolean isEmpty = isEffectivelyEmpty(diff);
+
+                    if (!isEmpty) {
+                        RDFDataMgr.write(out, diff, RDFFormat.TRIG_PRETTY);
+                    }
                 });
 
                 // Update metadata

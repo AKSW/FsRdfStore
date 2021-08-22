@@ -11,6 +11,8 @@ public class DIFSTerms {
     public static final String folder = ns + "folder";
     public static final String method = ns + "method";
 
+    public static final String allowEmptyGraphs = ns + "allowEmptyGraphs";
+
     public static final String heartbeatInterval = ns + "heartbeatInterval";
 
 }

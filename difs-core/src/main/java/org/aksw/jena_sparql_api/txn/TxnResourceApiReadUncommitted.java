@@ -45,8 +45,8 @@ public class TxnResourceApiReadUncommitted<T extends TxnReadUncommitted>
 
         resFileAbsPath = PathUtils.resolve(txn.txnMgr.resRepo.getRootPath(), resKey);
 
-        // TODO HACK - the data.trig should probably come from elsewhere
-        fileSync = FileSync.create(resFileAbsPath.resolve("data.trig"));
+        // FIXME HACK - the data.trig should probably come from elsewhere
+        fileSync = FileSync.create(resFileAbsPath.resolve("data.trig"), true);
     }
 
     @Override

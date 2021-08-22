@@ -19,12 +19,15 @@ import org.aksw.commons.util.array.Array;
 import org.aksw.jena_sparql_api.dataset.file.DatasetGraphIndexPlugin;
 import org.aksw.jena_sparql_api.txn.DatasetGraphFromFileSystem;
 import org.aksw.jena_sparql_api.txn.FileSync;
+import org.aksw.jena_sparql_api.txn.FileUtilsX;
 import org.aksw.jena_sparql_api.txn.SyncedDataset;
 import org.aksw.jena_sparql_api.txn.api.Txn;
 import org.aksw.jena_sparql_api.txn.api.TxnMgr;
 import org.aksw.jena_sparql_api.txn.api.TxnResourceApi;
 import org.aksw.jena_sparql_api.txn.api.TxnUtils;
 import org.aksw.jena_sparql_api.utils.IteratorClosable;
+import org.aksw.jena_sparql_api.utils.model.DatasetGraphDiff;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.jena.graph.Graph;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.Triple;
@@ -59,6 +62,7 @@ public class DatasetGraphFromTxnMgr
     protected boolean useJournal;
     protected ThreadLocal<Txn> txns = ThreadLocal.withInitial(() -> null);
 
+    protected boolean autoDeleteEmptyGraphs = true; // Auto-delete empty graphs - if false then DROP GRAPH <foo> is needed.
 
     protected Collection<DatasetGraphIndexPlugin> indexers = Collections.synchronizedSet(new HashSet<>());
 
@@ -80,7 +84,10 @@ public class DatasetGraphFromTxnMgr
     // TODO Make cache configurable; ctor must accept a cache builder
     protected LoadingCache<Array<String>, SyncedDataset> syncCache;
 
-    public static LoadingCache<Array<String>, SyncedDataset> createCache(TxnMgr txnMgr, CacheBuilder<Array<String>, SyncedDataset> cacheBuilder) {
+    public static LoadingCache<Array<String>, SyncedDataset> createCache(
+            TxnMgr txnMgr,
+            boolean autoDeleteEmptyGraphs,
+            CacheBuilder<Array<String>, SyncedDataset> cacheBuilder) {
         LoadingCache<Array<String>, SyncedDataset> result = cacheBuilder
             .removalListener(ev -> {
                 logger.debug("Cache eviction of dataset graph for " + ev.getKey());
@@ -98,9 +105,9 @@ public class DatasetGraphFromTxnMgr
 
                     // Path relPath = r// resRepo.getRelPath(key);
                     Path absPath = PathUtils.resolve(rootPath, key);
-                    FileSync fs = FileSync.create(absPath.resolve("data.trig"));
+                    FileSync fs = FileSync.create(absPath.resolve("data.trig"), autoDeleteEmptyGraphs);
 
-                    return new SyncedDataset(fs);
+                    return new SyncedDataset(fs, autoDeleteEmptyGraphs);
                 }
             });
         return result;
@@ -111,25 +118,31 @@ public class DatasetGraphFromTxnMgr
     }
 
 
-    public DatasetGraphFromTxnMgr(boolean useJournal, TxnMgr txnMgr, Collection<DatasetGraphIndexPlugin> indexers) {
-        this(useJournal, txnMgr, indexers, 100);
-    }
+//    public DatasetGraphFromTxnMgr(boolean useJournal, TxnMgr txnMgr, Collection<DatasetGraphIndexPlugin> indexers) {
+//        this(useJournal, txnMgr, indexers, 100);
+//    }
 
-    public DatasetGraphFromTxnMgr(boolean useJournal, TxnMgr txnMgr, Collection<DatasetGraphIndexPlugin> indexers, long maxCacheSize) {
-        this(useJournal, txnMgr, indexers, CacheBuilder.newBuilder().maximumSize(maxCacheSize));
-    }
+//    public DatasetGraphFromTxnMgr(boolean useJournal, TxnMgr txnMgr, boolean autoDeleteEmptyGraphs, Collection<DatasetGraphIndexPlugin> indexers, long maxCacheSize) {
+//        this(useJournal, txnMgr, autoDeleteEmptyGraphs, indexers, CacheBuilder.newBuilder().maximumSize(maxCacheSize));
+//    }
 
 //	public DatasetGraphFromTxnMgr(TxnMgr txnMgr, Collection<DatasetGraphIndexPlugin> indexers, CacheBuilder<?, ?> cacheBuilder) {
 //		this(txnMgr, indexers, cacheBuilder);
 //	}
 
     @SuppressWarnings("unchecked")
-    public DatasetGraphFromTxnMgr(boolean useJournal, TxnMgr txnMgr, Collection<DatasetGraphIndexPlugin> indexers, CacheBuilder<?, ?> cacheBuilder) {
+    public DatasetGraphFromTxnMgr(
+            boolean useJournal,
+            TxnMgr txnMgr,
+            boolean autoDeleteEmptyGraphs,
+            Collection<DatasetGraphIndexPlugin> indexers,
+            CacheBuilder<?, ?> cacheBuilder) {
         super();
         this.useJournal = useJournal;
         this.txnMgr = txnMgr;
         this.indexers = indexers;
-        this.syncCache = createCache(txnMgr, (CacheBuilder<Array<String>, SyncedDataset>)cacheBuilder);
+        this.autoDeleteEmptyGraphs = autoDeleteEmptyGraphs;
+        this.syncCache = createCache(txnMgr, autoDeleteEmptyGraphs, (CacheBuilder<Array<String>, SyncedDataset>)cacheBuilder);
     }
 
 
@@ -255,6 +268,11 @@ public class DatasetGraphFromTxnMgr
     }
 
     public static void applyJournal(Txn txn, LoadingCache<Array<String>, SyncedDataset> syncCache) {
+        TxnMgr txnMgr = txn.getTxnMgr();
+        ResourceRepository<String> resRepo = txnMgr.getResRepo();
+        Path resRepoRootPath = resRepo.getRootPath();
+
+
         boolean isCommit;
         try {
             isCommit = txn.isCommit() && !txn.isRollback();
@@ -279,12 +297,19 @@ public class DatasetGraphFromTxnMgr
                     logger.debug("Finalizing and unlocking: " + res);
                     TxnResourceApi api = txn.getResourceApi(res);
 
+                    String[] resourceKey = api.getResourceKey();
+
                     if (isCommit) {
                         api.finalizeCommit();
+
+                        // Clean up empty paths
+                        Path targetFile = api.getFileSync().getTargetFile();
+                        FileUtilsX.deleteEmptyFolders(targetFile.getParent(), resRepoRootPath);
+
                     } else {
                         api.rollback();
                     }
-                    SyncedDataset synced = syncCache.getIfPresent(api.getResourceKey());
+                    SyncedDataset synced = syncCache.getIfPresent(Array.wrap(resourceKey));
                     if (synced != null) {
                         if (synced.isDirty()) {
                             if (isCommit) {
@@ -435,12 +460,29 @@ public class DatasetGraphFromTxnMgr
 
     @Override
     public void addGraph(Node graphName, Graph graph) {
-        throw new UnsupportedOperationException("not implemented yet");
+        mutateGraph(graphName, dg -> {
+            dg.getAddedGraphs().add(graphName);
+            dg.getRemovedGraphs().remove(graphName);
+            return true;
+        });
     }
 
     @Override
     public void removeGraph(Node graphName) {
-        throw new UnsupportedOperationException("not implemented yet");
+        // delete(graphName, Node.ANY, Node.ANY, Node.ANY);
+
+        mutateGraph(graphName, dg -> {
+            // Clear the graph; later dataset changes may add triples again
+            Graph g = dg.getGraph(graphName);
+            g.clear();
+
+            dg.getAddedGraphs().remove(graphName);
+            dg.getRemovedGraphs().add(graphName);
+
+            return true;
+        });
+
+        // throw new UnsupportedOperationException("not implemented yet");
 //		String iri = graphName.getURI();
 //		local().getResourceApi(null)
     }
@@ -455,6 +497,9 @@ public class DatasetGraphFromTxnMgr
                 for (DatasetGraphIndexPlugin indexer : indexers) {
                     indexer.add(dg, g, s, p, o);
                 }
+
+                // Ensure the graph is no longer declared as removed
+                dg.getRemovedGraphs().remove(g);
             }
 
 
@@ -489,12 +534,24 @@ public class DatasetGraphFromTxnMgr
     @Override
     public void delete(Node g, Node s, Node p, Node o) {
         mutateGraph(g, dg -> {
-            boolean r = dg.contains(g, s, p, o);
+            Graph graph = dg.getGraph(g);
+
+            boolean r = graph.contains(s, p, o);
             if (r) {
                 for (DatasetGraphIndexPlugin indexer : indexers) {
                     indexer.delete(dg, g, s, p, o);
                 }
-                dg.delete(g, s, p, o);
+                // dg.delete(g, s, p, o);
+                graph.delete(s, p, o);
+
+                if (autoDeleteEmptyGraphs) {
+                    boolean isEmptyGraph = graph.isEmpty();
+                    if (isEmptyGraph) {
+                        dg.getRemovedGraphs().add(g);
+                    }
+
+                }
+
             }
             return r;
         });
@@ -505,7 +562,7 @@ public class DatasetGraphFromTxnMgr
      * @param graphNode
      * @param mutator A predicate with side effect; true means a change was performed
      */
-    protected void mutateGraph(Node graphNode, Predicate<DatasetGraph> mutator) {
+    protected void mutateGraph(Node graphNode, Predicate<DatasetGraphDiff> mutator) {
         mutate(this, () -> {
             String iri = graphNode.getURI();
             String[] key = txnMgr.getResRepo().getPathSegments(iri);
@@ -530,7 +587,7 @@ public class DatasetGraphFromTxnMgr
                 throw new RuntimeException(e);
             }
 
-            DatasetGraph dg = synced.get();
+            DatasetGraphDiff dg = synced.get();
             boolean isDirty = mutator.test(dg);
 //			if (isDirty) {
 //				synced.setDirty(true);

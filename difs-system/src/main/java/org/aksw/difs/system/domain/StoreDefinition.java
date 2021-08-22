@@ -36,6 +36,10 @@ public interface StoreDefinition
     @Iri(DIFSTerms.index)
     Set<IndexDefinition> getIndexDefinition();
 
+    @Iri(DIFSTerms.allowEmptyGraphs)
+    StoreDefinition setAllowEmptyGraphs(Boolean value);
+    Boolean isAllowEmptyGraphs();
+
     /**
      * The heartbeat interval is a parameter common to all transactions
      * accessing the repository.

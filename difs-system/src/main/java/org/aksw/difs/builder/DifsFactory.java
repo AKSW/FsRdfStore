@@ -314,6 +314,8 @@ public class DifsFactory {
     public DatasetGraph connect() throws IOException {
         StoreDefinition effStoreDef = createEffectiveStoreDefinition();
 
+        boolean allowEmptyGraphs = Optional.ofNullable(effStoreDef.isAllowEmptyGraphs()).orElse(false);
+
         long heartbeatInterval = Optional.ofNullable(effStoreDef.getHeartbeatInterval()).orElse(5000l);
 
         TxnMgr txnMgr = createTxnMgr(Duration.ofMillis(heartbeatInterval));
@@ -327,7 +329,8 @@ public class DifsFactory {
             namedGraphCacheBuilder.maximumSize(maximumNamedGraphCacheSize);
         }
 
-        DatasetGraphFromTxnMgr result = new DatasetGraphFromTxnMgr(useJournal, txnMgr, indexers, namedGraphCacheBuilder);
+        DatasetGraphFromTxnMgr result = new DatasetGraphFromTxnMgr(
+                useJournal, txnMgr, allowEmptyGraphs, indexers, namedGraphCacheBuilder);
 
         // Check for stale transactions
         result.cleanupStaleTxns();
