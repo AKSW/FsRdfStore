@@ -188,6 +188,8 @@ public class LockStoreImpl
 
         protected LockFromLockStore createLockOwner(String ownerKey) {
             // ownerKey = ownerToKey.apply(owner);
+        	Path lockRepoRootPath = lockRepo.getRootPath();
+        	
             String readLockFileName = ownerKey + ".read.lock";
 
             Path readLockPath = lockAbsPath.resolve(readLockFileName);
@@ -198,7 +200,8 @@ public class LockStoreImpl
                     ownerKey,
                     ownerRepoFactory,
                     // ownerPath -> ownerPath.getFileName().toString()
-                    ResourceLockImpl.this::linkTargetToKey);
+                    ResourceLockImpl.this::linkTargetToKey,
+                    lockRepoRootPath);
 
             LockFromLink writeLock = new LockFromLink(
                     symbolicLinkStrategy,
@@ -207,7 +210,8 @@ public class LockStoreImpl
                     // ownerRepo.getRootPath(), Collections.singletonList(key)
                     ownerRepoFactory,
                     // ownerPath -> ownerPath.getFileName().toString()
-                    ResourceLockImpl.this::linkTargetToKey
+                    ResourceLockImpl.this::linkTargetToKey,
+                    lockRepoRootPath
                     );
 
             LockFromLink mgmtLock = new LockFromLink(
@@ -216,7 +220,8 @@ public class LockStoreImpl
                     ownerKey,
                     ownerRepoFactory,
                     // ownerPath -> ownerPath.getFileName().toString()
-                    ResourceLockImpl.this::linkTargetToKey
+                    ResourceLockImpl.this::linkTargetToKey,
+                    lockRepoRootPath
                     );
 
             return new LockFromLockStore(this, ownerKey, mgmtLock, readLock, writeLock);
