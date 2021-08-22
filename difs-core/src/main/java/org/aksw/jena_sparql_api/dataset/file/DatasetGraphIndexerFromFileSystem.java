@@ -199,10 +199,8 @@ public class DatasetGraphIndexerFromFileSystem
             String suffix = tmpSuffix + ".link";
 
             try {
-//                Files.createDirectories(idxFullPath);
                 FileUtilsX.ensureFolderExists(idxFullPath, x -> {
                     SymLinkUtils.allocateSymbolicLink(symlinkStrategy, symLinkTgtAbsFile, idxFullPath, prefix, suffix);
-                    // symlinkStrategy.createSymbolicLink(path, target);
                 });
 
                 // TODO Possibly extend allocateSymbolicLink with a flag to update the symlink rather

@@ -11,6 +11,8 @@ import java.nio.file.attribute.FileTime;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.TemporalAmount;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.locks.Lock;
@@ -227,6 +229,22 @@ public class TxnSerializable
 
 
     public void cleanUpTxn() throws IOException {
+//    	List<Path> files = Arrays.asList(
+//    			commitFile,
+//    			finalizeFile,
+//    			rollbackFile,
+//    			txnFolder.resolve("write"),
+//    			ownerFile
+//    	);
+//
+//    	for (Path file : files) {
+//    		try {
+//    			Files.deleteIfExists(file);
+//    		} catch (Exception e) {
+//    			logger.warn("Failed to delete a file", e);
+//    		}
+//    	}
+
         try {
             Files.deleteIfExists(commitFile);
         } finally {
@@ -239,7 +257,11 @@ public class TxnSerializable
                     try {
                         Files.deleteIfExists(txnFolder.resolve("write"));
                     } finally {
-                        FileUtilsX.deleteEmptyFolders(txnFolder, txnMgr.txnBasePath);
+                        try {
+                            Files.deleteIfExists(ownerFile);
+                        } finally {
+                            FileUtilsX.deleteEmptyFolders(txnFolder, txnMgr.txnBasePath);
+                        }
                     }
                 }
             }
