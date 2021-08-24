@@ -1,6 +1,5 @@
 package org.aksw.difs.engine;
 
-import org.aksw.jena_sparql_api.core.QueryExecutionFactoryDataset.QueryEngineFactoryProvider;
 import org.apache.jena.query.Query;
 import org.apache.jena.sparql.algebra.Algebra;
 import org.apache.jena.sparql.algebra.Op;
@@ -33,7 +32,7 @@ public class QueryEngineQuadForm
 
 
     public static final QueryEngineFactory factory = new QueryEngineQuadFormFactory() ;
-    public static final QueryEngineFactoryProvider PROVIDER = (qu, da, co) -> QueryEngineQuadForm.factory;
+    // public static final QueryEngineFactoryProvider PROVIDER = (qu, da, co) -> QueryEngineQuadForm.factory;
 
     protected static class QueryEngineQuadFormFactory implements QueryEngineFactory
     {

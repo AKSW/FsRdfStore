@@ -3,8 +3,6 @@ package org.aksw.difs.engine;
 import java.util.Iterator;
 import java.util.List;
 
-import org.aksw.difs.engine.QueryEngineQuadForm.QueryEngineQuadFormFactory;
-import org.aksw.jena_sparql_api.core.QueryExecutionFactoryDataset.QueryEngineFactoryProvider;
 import org.apache.jena.atlas.data.BagFactory;
 import org.apache.jena.atlas.data.DataBag;
 import org.apache.jena.atlas.data.ThresholdPolicy;
@@ -12,7 +10,6 @@ import org.apache.jena.atlas.data.ThresholdPolicyFactory;
 import org.apache.jena.atlas.iterator.Iter;
 import org.apache.jena.graph.Node;
 import org.apache.jena.query.Query;
-import org.apache.jena.query.QueryExecutionFactory;
 import org.apache.jena.sparql.core.DatasetGraph;
 import org.apache.jena.sparql.engine.Plan;
 import org.apache.jena.sparql.engine.QueryEngineFactory;

@@ -16,10 +16,13 @@
 
 	<modules>
 		<module>difs-core</module>
-		<module>difs-git</module>
+		<module>difs-arq-quad-engine</module>
+		<module>difs-facade</module>
 		<module>difs-system</module>
 		<module>difs-cli</module>
 		<module>difs-examples</module>
+
+		<module>difs-git</module>
 	</modules>
 
 	<issueManagement>
@@ -86,6 +89,12 @@
 			<!-- <artifactId>jena-fuseki-main</artifactId> -->
 			<!-- <version>${jena.version}</version> -->
 			<!-- </dependency> -->
+
+			<dependency>
+				<groupId>org.apache.jena</groupId>
+				<artifactId>jena-arq</artifactId>
+				<version>${jena.version}</version>
+			</dependency>
 
 			<dependency>
 				<groupId>org.aksw.commons</groupId>
@@ -165,6 +174,18 @@
 			<dependency>
 				<groupId>org.aksw.difs</groupId>
 				<artifactId>difs-core</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+
+			<dependency>
+				<groupId>org.aksw.difs</groupId>
+				<artifactId>difs-arq-quad-engine</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+
+			<dependency>
+				<groupId>org.aksw.difs</groupId>
+				<artifactId>difs-facade</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 
