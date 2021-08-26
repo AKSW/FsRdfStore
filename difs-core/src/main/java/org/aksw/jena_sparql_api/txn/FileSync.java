@@ -3,18 +3,15 @@ package org.aksw.jena_sparql_api.txn;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.channels.FileChannel;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.FileTime;
 import java.time.Instant;
 import java.util.function.Consumer;
 
-import org.aksw.commons.io.util.FileChannelUtils;
+import org.aksw.commons.io.util.FileUtils;
 
 
 /**
@@ -126,26 +123,9 @@ public class FileSync
         Files.deleteIfExists(newContentFile);
         try (OutputStream out = newOutputStreamToNewTmpContent()) {
             outputStreamSupplier.accept(out);
-            moveAtomic(newContentTmpFile, newContentFile);
+            FileUtils.moveAtomic(newContentTmpFile, newContentFile);
         }
     }
-
-    public static void moveAtomic(Path srcFile, Path tgtPath) throws IOException {
-        try {
-            Files.move(srcFile, tgtPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-        } catch (AtomicMoveNotSupportedException e) {
-            try (
-                    FileChannel srcChannel = FileChannel.open(srcFile, StandardOpenOption.READ);
-                    FileChannel tgtChannel = FileChannel.open(tgtPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
-                long n = srcChannel.size();
-                FileChannelUtils.transferFromFully(tgtChannel, srcChannel, 0, n, null);
-                tgtChannel.force(true);
-            }
-
-            Files.delete(srcFile);
-        }
-    }
-
 
     public void recoverPreCommit() throws IOException {
         // If there is no newContent but a newContentTmp then we reached an inconsistent state:
@@ -162,7 +142,7 @@ public class FileSync
 
         // If there is no backup of the existing data then create it
         if (!Files.exists(oldContentFile)) {
-            moveAtomic(targetFile, oldContentFile);
+            FileUtils.moveAtomic(targetFile, oldContentFile);
         }
     }
 
@@ -182,19 +162,19 @@ public class FileSync
                     Files.createDirectories(oldContentFile.getParent());
                     Files.createFile(oldContentFile);
                 } else {
-                    moveAtomic(targetFile, oldContentFile);
+                    FileUtils.moveAtomic(targetFile, oldContentFile);
                 }
             }
 
             // Move the tmp content to new content
-            moveAtomic(newContentTmpFile, newContentFile);
+            FileUtils.moveAtomic(newContentTmpFile, newContentFile);
         }
 
 
         // Move new new content to the target
         if (Files.exists(newContentFile)) {
             // TODO Skip update if newContentFile and targetFile are the same (have the same timestamp)
-            moveAtomic(newContentFile, targetFile);
+            FileUtils.moveAtomic(newContentFile, targetFile);
         }
     }
 
@@ -216,7 +196,7 @@ public class FileSync
         Files.deleteIfExists(newContentTmpFile);
 
         if (Files.exists(oldContentFile)) {
-            moveAtomic(oldContentFile, targetFile);
+            FileUtils.moveAtomic(oldContentFile, targetFile);
         }
     }
 }

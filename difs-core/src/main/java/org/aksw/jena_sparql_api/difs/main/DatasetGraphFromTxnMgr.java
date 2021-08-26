@@ -200,6 +200,7 @@ public class DatasetGraphFromTxnMgr
     public void commit() {
 
         try {
+            // TODO Non-write transactions can probably skip the sync block - or?
             try (Stream<String[]> stream = local().streamAccessedResourcePaths()) {
                 Iterator<String[]> it = stream.iterator();
                 while (it.hasNext()) {
@@ -488,6 +489,12 @@ public class DatasetGraphFromTxnMgr
     }
 
     @Override
+    public boolean contains(Node g, Node s, Node p, Node o) {
+        boolean result = access(this, () -> super.contains(g, s, p, o));
+        return result;
+    }
+
+    @Override
     public void add(Node g, Node s, Node p, Node o) {
 //		System.out.println(new Quad(g, s, p, o));
         mutateGraph(g, dg -> {
@@ -717,7 +724,9 @@ public class DatasetGraphFromTxnMgr
                 .filter(TxnResourceApi::isVisible)
                 .map(api -> mapToDatasetGraph(local, api))
                     // .collect(Collectors.toList()).stream() // FIXME only collect if not in a txn
-                .flatMap(dg -> Streams.stream(dg.find(Node.ANY, s, p, o)));
+
+                // TODO We may want to allow relativizing 'g' for lookups accross paths
+                .flatMap(dg -> Streams.stream(dg.find(g, s, p, o)));
 
 //    	return access(this, () -> Stream.of(local().getResourceApi(relPath))
 //        	.filter(TxnResourceApi::isVisible)

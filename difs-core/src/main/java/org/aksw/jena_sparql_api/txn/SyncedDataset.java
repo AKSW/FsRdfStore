@@ -2,6 +2,7 @@ package org.aksw.jena_sparql_api.txn;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
@@ -12,8 +13,7 @@ import java.util.Objects;
 import java.util.Set;
 
 import org.aksw.jena_sparql_api.rx.DatasetGraphFactoryEx;
-import org.aksw.jena_sparql_api.utils.DatasetGraphUtils;
-import org.aksw.jena_sparql_api.utils.DatasetUtils;
+import org.aksw.jena_sparql_api.rx.RDFDataMgrEx;
 import org.aksw.jena_sparql_api.utils.SetFromDatasetGraph;
 import org.aksw.jena_sparql_api.utils.model.DatasetGraphDiff;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -156,13 +156,21 @@ public class SyncedDataset {
         this.state = getState();
     }
 
+    protected void readData(DatasetGraph datasetGraph, InputStream in) {
+        RDFDataMgrEx.readAsGiven(originalState, in, Lang.TRIG);
+    }
+
+    protected void writeData(OutputStream out, DatasetGraph datasetGraph) {
+        RDFDataMgr.write(out, datasetGraph, RDFFormat.TRIG_BLOCKS);
+    }
+
     public void forceLoad() {
         state = getState();
 
         originalState = DatasetGraphFactoryEx.createInsertOrderPreservingDatasetGraph();
 
         try (InputStream in = Files.newInputStream(state.getCurrentState().getPath())) {
-            RDFDataMgr.read(originalState, in, Lang.TRIG);
+            readData(originalState, in);
         } catch (AccessDeniedException ex) {
             // FIXME The file may not exist but it may also be an authorization issue
             logger.warn("Access denied: " + ExceptionUtils.getRootCauseMessage(ex));
@@ -175,7 +183,7 @@ public class SyncedDataset {
         if (!state.getCurrentState().getPath().equals(state.getOriginalState().getPath())) {
             DatasetGraph n = DatasetGraphFactoryEx.createInsertOrderPreservingDatasetGraph();
             try (InputStream in = Files.newInputStream(state.getCurrentState().getPath())) {
-                RDFDataMgr.read(n, in, Lang.TRIG);
+                readData(n, in);
             } catch (Exception ex) {
                 throw new RuntimeException(ex);
             }
@@ -294,10 +302,12 @@ public class SyncedDataset {
                 ensureUpToDate();
 
                 fileSync.putContent(out -> {
+                    // FIXME We need to derive a new dataset (view) that has
+                    // all empty graphs from diff removed (hidden)
                     boolean isEmpty = isEffectivelyEmpty(diff);
 
                     if (!isEmpty) {
-                        RDFDataMgr.write(out, diff, RDFFormat.TRIG_PRETTY);
+                        writeData(out, diff);
                     }
                 });
 

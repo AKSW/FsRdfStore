@@ -37,6 +37,9 @@ import org.aksw.jena_sparql_api.rx.RDFDataMgrEx;
 import org.aksw.jena_sparql_api.rx.entity.EntityInfo;
 import org.aksw.jena_sparql_api.server.utils.FactoryBeanSparqlServer;
 import org.aksw.jena_sparql_api.sparql.ext.fs.OpExecutorServiceOrFile;
+import org.aksw.jena_sparql_api.stmt.SparqlParserConfig;
+import org.aksw.jena_sparql_api.stmt.SparqlQueryParser;
+import org.aksw.jena_sparql_api.stmt.SparqlQueryParserImpl;
 import org.apache.commons.lang3.time.StopWatch;
 import org.apache.commons.vfs2.FileObject;
 import org.apache.commons.vfs2.FileSystemManager;
@@ -78,7 +81,25 @@ import com.sshtools.vfs2nio.Vfs2NioFileSystemProvider;
 public class MainPlayground {
 
     public static void main(String[] args) throws Exception {
-        mainX(args);
+
+        // Dataset m = RDFDataMgr.loadDataset("/var/www/webdav/gitalog/store/org.mclient.foobar.baz/data.trig");
+//        String str = "/var/www/webdav/gitalog/store/org.mclient.foobar.baz/data.trig";
+//
+//
+//        Dataset m = RDFDataMgrEx.loadDatasetAsGiven(str);
+//        RDFDataMgr.write(System.out, m, RDFFormat.TRIG_BLOCKS);
+
+        // mainX(args);
+        parseTest();
+    }
+
+    public static void parseTest() {
+        SparqlQueryParser parser = SparqlQueryParserImpl.create(SparqlParserConfig.newInstance()
+                .setIrixResolverAsGiven());
+        Query q = parser.apply("SELECT * { GRAPH <" + "test" + "> { ?s <http://www.w3.org/2000/01/rdf-schema#member> ?o } }");
+
+        System.out.println(q);
+
     }
 
     public static void mainZ(String[] args) throws Exception {
