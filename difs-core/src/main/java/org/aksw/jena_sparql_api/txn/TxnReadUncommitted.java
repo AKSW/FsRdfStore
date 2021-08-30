@@ -85,17 +85,22 @@ public class TxnReadUncommitted
         // TODO This pure listing of file resources should probably go to the repository
         PathMatcher pathMatcher = txnMgr.getResRepo().getRootPath().getFileSystem().getPathMatcher("glob:**/*.trig");
 
+        // The root path may not exist if the store is empty
+        Path rootPath = txnMgr.getResRepo().getRootPath();
+
         // isVisible filters out graphs that were created after the transaction start
         Stream<TxnResourceApi> result;
         try {
-            result = Files.walk(txnMgr.getResRepo().getRootPath())
-                .filter(pathMatcher::matches)
-                // We are interested in the folder - not the file itself: Get the parent
-                .map(Path::getParent)
-                .map(path -> txnMgr.resRepo.getRootPath().relativize(path))
-                .map(PathUtils::getPathSegments)
-                .map(this::getResourceApi)
-                .filter(TxnResourceApi::isVisible);
+            result = Files.exists(rootPath)
+                    ? Files.walk(rootPath)
+                        .filter(pathMatcher::matches)
+                        // We are interested in the folder - not the file itself: Get the parent
+                        .map(Path::getParent)
+                        .map(path -> rootPath.relativize(path))
+                        .map(PathUtils::getPathSegments)
+                        .map(this::getResourceApi)
+                        .filter(TxnResourceApi::isVisible)
+                    : Stream.empty();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

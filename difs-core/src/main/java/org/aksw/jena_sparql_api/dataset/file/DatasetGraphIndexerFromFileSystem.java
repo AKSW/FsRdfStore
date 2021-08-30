@@ -28,6 +28,15 @@ import org.apache.jena.sparql.util.NodeUtils;
 
 import com.google.common.collect.Streams;
 
+
+/**
+ * Indexer based on predicates. Indexes objects of triples for the given predicate.
+ *
+ * TODO Add a flag whether to index subjects instead.
+ *
+ * @author raven
+ *
+ */
 public class DatasetGraphIndexerFromFileSystem
     implements DatasetGraphIndexPlugin
 {
@@ -78,7 +87,7 @@ public class DatasetGraphIndexerFromFileSystem
     }
 
 
-    public static String[] iriOrLexicalFormToToPath(Node node) {
+    public static String[] iriOrLexicalFormToPath(Node node) {
         String[] result = node.isLiteral()
                 ? new String[] {StringUtils.urlEncode(node.getLiteralLexicalForm())}
                 : node.isURI()
@@ -89,7 +98,7 @@ public class DatasetGraphIndexerFromFileSystem
         return result;
     }
 
-    public static Path mavenStringToToPath(Node node) {
+    public static Path mavenStringToPath(Node node) {
         String str = node.isURI() ? node.getURI() : NodeUtils.stringLiteral(node);
 
         // Remove trailing slashes and

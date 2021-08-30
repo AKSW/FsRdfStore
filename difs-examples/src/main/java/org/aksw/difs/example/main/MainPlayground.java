@@ -82,6 +82,8 @@ public class MainPlayground {
 
     public static void main(String[] args) throws Exception {
 
+
+
         // Dataset m = RDFDataMgr.loadDataset("/var/www/webdav/gitalog/store/org.mclient.foobar.baz/data.trig");
 //        String str = "/var/www/webdav/gitalog/store/org.mclient.foobar.baz/data.trig";
 //
@@ -89,17 +91,29 @@ public class MainPlayground {
 //        Dataset m = RDFDataMgrEx.loadDatasetAsGiven(str);
 //        RDFDataMgr.write(System.out, m, RDFFormat.TRIG_BLOCKS);
 
-        // mainX(args);
-        parseTest();
+        mainX(args);
+        // parseTest();
     }
 
     public static void parseTest() {
-        SparqlQueryParser parser = SparqlQueryParserImpl.create(SparqlParserConfig.newInstance()
-                .setIrixResolverAsGiven());
-        Query q = parser.apply("SELECT * { GRAPH <" + "test" + "> { ?s <http://www.w3.org/2000/01/rdf-schema#member> ?o } }");
 
-        System.out.println(q);
+         String baseIri = "base.url.test/";
+//        String baseIri = null;
+        Dataset ds = RDFDataMgrEx.loadDatasetAsGiven("/var/www/webdav/gitalog/store/org.mclient.foobar/dataset1/data.trig", baseIri);
+        ds.asDatasetGraph().find().forEachRemaining(System.out::println);
 
+        // RDFDataMgrEx.write(System.out, ds);
+        RDFDataMgrEx.writeAsGiven(System.out, ds, RDFFormat.TRIG_BLOCKS, baseIri);
+
+
+
+        if (false) {
+            SparqlQueryParser parser = SparqlQueryParserImpl.create(SparqlParserConfig.newInstance()
+                    .parseAsGiven());
+            Query q = parser.apply("SELECT * { GRAPH <" + "test" + "> { ?s <http://www.w3.org/2000/01/rdf-schema#member> ?o } }");
+
+            System.out.println(q);
+        }
     }
 
     public static void mainZ(String[] args) throws Exception {

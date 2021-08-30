@@ -11,6 +11,6 @@ public class RdfIndexerFactoryLexicalForm
 {
 	@Override
 	public Function<Node, String[]> getMapper() {
-		return DatasetGraphIndexerFromFileSystem::iriOrLexicalFormToToPath;
+		return DatasetGraphIndexerFromFileSystem::iriOrLexicalFormToPath;
 	}
 }

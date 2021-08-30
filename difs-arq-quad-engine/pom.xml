@@ -19,6 +19,13 @@
 			<artifactId>jena-arq</artifactId>
 		</dependency>
 
+
+		<!-- For RDFConnectionFactoryQuadForm -->
+		<dependency>
+			<groupId>org.aksw.jena-sparql-api</groupId>
+			<artifactId>jena-sparql-api-core</artifactId>
+		</dependency>
+
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
