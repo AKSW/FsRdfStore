@@ -16,7 +16,6 @@
 
 	<modules>
 		<module>difs-core</module>
-		<module>difs-arq-quad-engine</module>
 		<module>difs-facade</module>
 		<module>difs-system</module>
 		<module>difs-cli</module>
@@ -96,11 +95,12 @@
 				<version>${jena.version}</version>
 			</dependency>
 
-<!-- 			<dependency> -->
-<!-- 				<groupId>org.apache.jena</groupId> -->
-<!-- 				<artifactId>jena-rdfconnection</artifactId> -->
-<!-- 				<version>${jena.version}</version> -->
-<!-- 			</dependency> -->
+
+			<!-- <dependency> -->
+			<!-- <groupId>org.apache.jena</groupId> -->
+			<!-- <artifactId>jena-rdfconnection</artifactId> -->
+			<!-- <version>${jena.version}</version> -->
+			<!-- </dependency> -->
 
 			<dependency>
 				<groupId>org.aksw.commons</groupId>
@@ -112,6 +112,12 @@
 				<groupId>org.aksw.commons</groupId>
 				<artifactId>aksw-commons-util</artifactId>
 				<version>${aksw.commons.version}</version>
+			</dependency>
+
+			<dependency>
+				<groupId>org.aksw.jena-sparql-api</groupId>
+				<artifactId>jena-sparql-api-arq-quad-form</artifactId>
+				<version>${jena-sparql-api.version}</version>
 			</dependency>
 
 			<dependency>
@@ -185,7 +191,7 @@
 
 			<dependency>
 				<groupId>org.aksw.difs</groupId>
-				<artifactId>difs-arq-quad-engine</artifactId>
+				<artifactId>jena-sparql-api-arq-quad-form</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 

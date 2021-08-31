@@ -35,8 +35,8 @@
 		</dependency>
 
 		<dependency>
-			<groupId>org.aksw.difs</groupId>
-			<artifactId>difs-arq-quad-engine</artifactId>
+			<groupId>org.aksw.jena-sparql-api</groupId>
+			<artifactId>jena-sparql-api-arq-quad-form</artifactId>
 		</dependency>
 
 		<dependency>
