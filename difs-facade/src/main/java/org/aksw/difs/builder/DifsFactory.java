@@ -39,6 +39,8 @@ import org.aksw.jena_sparql_api.txn.TxnMgrImpl;
 import org.aksw.jena_sparql_api.txn.api.TxnMgr;
 import org.apache.jena.dboe.sys.ProcessUtils;
 import org.apache.jena.graph.Node;
+import org.apache.jena.query.Dataset;
+import org.apache.jena.query.DatasetFactory;
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.ModelFactory;
 import org.apache.jena.rdf.model.Property;
@@ -70,6 +72,9 @@ public class DifsFactory {
     protected Path indexRelPath;
     protected boolean createIfNotExists;
 
+    /** Disable parallel streams for debugging purposes */
+    protected boolean isParallel = true;
+
     protected StoreDefinition storeDefinition;
 
     protected long maximumNamedGraphCacheSize = -1; // -1 = unlimited
@@ -90,6 +95,13 @@ public class DifsFactory {
     public boolean isCreateIfNotExists() {
         return createIfNotExists;
     }
+
+    /** Whether to use parallel streams. True by default. */
+    public DifsFactory setParallel(boolean isParallel) {
+        this.isParallel = isParallel;
+        return this;
+    }
+
 
     public DifsFactory setCreateIfNotExists(boolean createIfNotExists) {
         this.createIfNotExists = createIfNotExists;
@@ -226,7 +238,7 @@ public class DifsFactory {
 
         ResourceRepository<String> resStore = ResourceRepoImpl.createWithUriToPath(repoRootPath.resolve("store"));
 
-        Objects.requireNonNull(symbolicLinkStrategy);
+        Objects.requireNonNull(symbolicLinkStrategy, "Symbolic link strategy not set");
         DatasetGraphIndexerFromFileSystem result = new DatasetGraphIndexerFromFileSystem(
                 symbolicLinkStrategy,
                 resStore,
@@ -311,6 +323,11 @@ public class DifsFactory {
         return result;
     }
 
+    public Dataset connectAsDataset() throws IOException {
+        DatasetGraph dg = connect();
+        return DatasetFactory.wrap(dg);
+    }
+
     public DatasetGraph connect() throws IOException {
         StoreDefinition effStoreDef = createEffectiveStoreDefinition();
 
@@ -330,7 +347,7 @@ public class DifsFactory {
         }
 
         DatasetGraphFromTxnMgr result = new DatasetGraphFromTxnMgr(
-                useJournal, txnMgr, allowEmptyGraphs, indexers, namedGraphCacheBuilder);
+                useJournal, txnMgr, allowEmptyGraphs, isParallel, indexers, namedGraphCacheBuilder);
 
         // Check for stale transactions
         result.cleanupStaleTxns();

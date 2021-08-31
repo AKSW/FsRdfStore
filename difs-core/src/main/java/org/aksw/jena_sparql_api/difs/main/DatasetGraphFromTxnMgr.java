@@ -7,14 +7,17 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.aksw.commons.io.util.PathUtils;
+import org.aksw.commons.rx.op.RxOps;
 import org.aksw.commons.util.array.Array;
 import org.aksw.jena_sparql_api.dataset.file.DatasetGraphIndexPlugin;
 import org.aksw.jena_sparql_api.txn.DatasetGraphFromFileSystem;
@@ -27,7 +30,6 @@ import org.aksw.jena_sparql_api.txn.api.TxnResourceApi;
 import org.aksw.jena_sparql_api.txn.api.TxnUtils;
 import org.aksw.jena_sparql_api.utils.IteratorClosable;
 import org.aksw.jena_sparql_api.utils.model.DatasetGraphDiff;
-import org.apache.commons.io.FilenameUtils;
 import org.apache.jena.graph.Graph;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.Triple;
@@ -50,7 +52,10 @@ import org.slf4j.LoggerFactory;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
+
+import io.reactivex.rxjava3.core.Flowable;
 
 
 public class DatasetGraphFromTxnMgr
@@ -60,6 +65,10 @@ public class DatasetGraphFromTxnMgr
 
     protected TxnMgr txnMgr;
     protected boolean useJournal;
+
+    // Whether operations such as dataset loading should run in parallel
+    protected boolean isParallel;
+
     protected ThreadLocal<Txn> txns = ThreadLocal.withInitial(() -> null);
 
     protected boolean autoDeleteEmptyGraphs = true; // Auto-delete empty graphs - if false then DROP GRAPH <foo> is needed.
@@ -135,6 +144,7 @@ public class DatasetGraphFromTxnMgr
             boolean useJournal,
             TxnMgr txnMgr,
             boolean autoDeleteEmptyGraphs,
+            boolean isParallel,
             Collection<DatasetGraphIndexPlugin> indexers,
             CacheBuilder<?, ?> cacheBuilder) {
         super();
@@ -142,6 +152,7 @@ public class DatasetGraphFromTxnMgr
         this.txnMgr = txnMgr;
         this.indexers = indexers;
         this.autoDeleteEmptyGraphs = autoDeleteEmptyGraphs;
+        this.isParallel = isParallel;
         this.syncCache = createCache(txnMgr, autoDeleteEmptyGraphs, (CacheBuilder<Array<String>, SyncedDataset>)cacheBuilder);
     }
 
@@ -162,7 +173,12 @@ public class DatasetGraphFromTxnMgr
 
     @Override
     public void begin(TxnType type) {
-        begin(TxnType.convert(type));
+        // TODO We treat READ_PROMOTE as write which is not optimal
+        if (TxnType.READ_PROMOTE.equals(type)) {
+            begin(TxnType.WRITE);
+        } else {
+            begin(TxnType.convert(type));
+        }
     }
 
     @Override
@@ -295,7 +311,7 @@ public class DatasetGraphFromTxnMgr
                 Iterator<String[]> it = stream.iterator();
                 while (it.hasNext()) {
                     String[] res = it.next();
-                    logger.debug("Finalizing and unlocking: " + res);
+                    logger.debug("Finalizing and unlocking: " + Array.wrap(res));
                     TxnResourceApi api = txn.getResourceApi(res);
 
                     String[] resourceKey = api.getResourceKey();
@@ -437,8 +453,16 @@ public class DatasetGraphFromTxnMgr
         Iterator<Node> result = access(this, () -> {
             Txn local = local();
             try (Stream<TxnResourceApi> stream = local().listVisibleFiles()) {
-                return stream
-                    .map(api -> mapToDatasetGraph(local, api))
+
+//                dgStream = Flowable.fromStream(baseStream)
+//                        .compose(RxOps.createParallelMapperOrdered(resourceTxnApi -> {
+//                            DatasetGraph r = mapToDatasetGraph(local, resourceTxnApi);
+//                            return r;
+//                        }))
+//                        .blockingStream();
+
+                return mapStreamToDatasetGraph(isParallel, local, stream)
+                    // .map(api -> mapToDatasetGraph(local, api))
                     .collect(Collectors.toList()).stream() // FIXME only collect if not in a txn
                     .flatMap(dataset -> {
                         return Streams.stream(dataset.listGraphNodes());
@@ -682,6 +706,33 @@ public class DatasetGraphFromTxnMgr
     }
 
 
+    /**
+     * Accessing an iterator outside of a transaction creates an ad-hoc internal
+     * txn in which all items are materialized. A warning is logged if that
+     * set of items is large.
+     *
+     */
+    public static <T> Iterator<T> accessIterator(Transactional txn, Supplier<? extends Iterator<T>> source) {
+
+        Iterator<T> result;
+        if (txn.isInTransaction()) {
+            result = source.get();
+        } else {
+            // Materialize the iterator within an ad-hoc transaction
+            // Raises a warning upon accessing too many items
+            result = org.apache.jena.system.Txn.calculateRead(txn, () -> {
+                List<T> materialized = Lists.newArrayList(source.get());
+                if (materialized.size() > 100) {
+                    Exception warning = new RuntimeException("Many items seen in ad-hoc txn - consider managing the txn explicitly");
+                    logger.warn("", warning);
+                }
+                return materialized.iterator();
+            });
+        }
+
+        return result;
+    }
+
 //
 //
 //    // @Override
@@ -750,18 +801,40 @@ public class DatasetGraphFromTxnMgr
         return visibleMatchingResources;
     }
 
+
+    protected static <I, O> Stream<O> mapStream(
+            boolean isParallel,
+            Stream<I> baseStream,
+            Function<? super I, O> mapper) {
+        Stream<O> dgStream;
+        if (isParallel) {
+            dgStream = Flowable.fromStream(baseStream)
+                .compose(RxOps.createParallelMapperOrdered(mapper))
+                .blockingStream();
+        } else {
+            dgStream = baseStream.map(mapper);
+        }
+
+        return dgStream;
+    }
+
+
+    public Stream<DatasetGraph> mapStreamToDatasetGraph(boolean isParallel, Txn local, Stream<TxnResourceApi> baseStream) {
+        return mapStream(isParallel, baseStream, resourceTxnApi -> mapToDatasetGraph(local, resourceTxnApi));
+    }
+
     public Stream<Quad> findInAnyNamedGraphsCore(Txn local, Node s, Node p, Node o) {
         // findResources(s, p, o)
-        return
-            findResources(local, s, p, o)
-                .map(resourceTxnApi -> {
-                    DatasetGraph r = mapToDatasetGraph(local, resourceTxnApi);
-                    return r;
-                })
+        Stream<TxnResourceApi> baseStream = findResources(local, s, p, o);
+
+
+        Stream<Quad> result = mapStreamToDatasetGraph(isParallel, local, baseStream)
                 // .collect(Collectors.toList()).stream() // FIXME only collect if not in a txn
                 .flatMap(dg -> {
                     return Streams.stream(dg.find(Node.ANY, s, p, o));
                 });
+
+        return result;
     }
 
 
@@ -783,7 +856,7 @@ public class DatasetGraphFromTxnMgr
     @Override
     public Iterator<Quad> find(Node g, Node s, Node p, Node o) {
 
-        return access(this, () -> {
+        return accessIterator(this, () -> {
             Txn local = local();
             Stream<Quad> stream = g == null || Node.ANY.equals(g)
                 ? findInAnyNamedGraphs(local, s, p, o)

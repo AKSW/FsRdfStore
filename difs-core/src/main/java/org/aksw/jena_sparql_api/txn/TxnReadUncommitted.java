@@ -54,6 +54,10 @@ public class TxnReadUncommitted
         return txnId;
     }
 
+    @Override
+    public void promote() {
+        throw new UnsupportedOperationException("not implemented yet");
+    }
 
     protected LoadingCache<Array<String>, TxnResourceApi> containerCache = CacheBuilder.newBuilder()
             .maximumSize(1000)

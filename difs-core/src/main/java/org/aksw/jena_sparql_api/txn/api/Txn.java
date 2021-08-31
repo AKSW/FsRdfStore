@@ -43,6 +43,12 @@ public interface Txn
     void cleanUpTxn() throws IOException;
 
 
+    /**
+     * Promote a read transaction to write.
+     *
+     */
+    void promote();
+
     Instant getCreationDate();
 
 

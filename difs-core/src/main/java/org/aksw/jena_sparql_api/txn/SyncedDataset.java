@@ -23,6 +23,7 @@ import org.apache.jena.riot.Lang;
 import org.apache.jena.riot.RDFDataMgr;
 import org.apache.jena.riot.RDFFormat;
 import org.apache.jena.sparql.core.DatasetGraph;
+import org.apache.jena.sparql.core.DatasetGraphFactory;
 import org.apache.jena.sparql.core.Quad;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -164,10 +165,15 @@ public class SyncedDataset {
         RDFDataMgr.write(out, datasetGraph, RDFFormat.TRIG_BLOCKS);
     }
 
+    protected DatasetGraph newDatasetGraph() {
+        return DatasetGraphFactoryEx.createInsertOrderPreservingDatasetGraph();
+        // return new DatasetGraphFactory().createTxnMem();
+    }
+
     public void forceLoad() {
         state = getState();
 
-        originalState = DatasetGraphFactoryEx.createInsertOrderPreservingDatasetGraph();
+        originalState = newDatasetGraph();
 
         try (InputStream in = Files.newInputStream(state.getCurrentState().getPath())) {
             readData(originalState, in);
@@ -181,7 +187,7 @@ public class SyncedDataset {
         }
 
         if (!state.getCurrentState().getPath().equals(state.getOriginalState().getPath())) {
-            DatasetGraph n = DatasetGraphFactoryEx.createInsertOrderPreservingDatasetGraph();
+            DatasetGraph n = newDatasetGraph();
             try (InputStream in = Files.newInputStream(state.getCurrentState().getPath())) {
                 readData(n, in);
             } catch (Exception ex) {

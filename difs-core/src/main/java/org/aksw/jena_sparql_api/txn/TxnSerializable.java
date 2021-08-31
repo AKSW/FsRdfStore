@@ -146,7 +146,10 @@ public class TxnSerializable
 
             return fileTime.toInstant();
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            // Reaching this place happens typically if an iterator created within a txn
+            // is used outside of a txn
+
+            throw new RuntimeException("Likely use of iterator outside of txn", e);
         }
     }
 
