@@ -71,7 +71,7 @@ public class DatasetGraphFromTxnMgr
 
     protected ThreadLocal<Txn> txns = ThreadLocal.withInitial(() -> null);
 
-    protected boolean autoDeleteEmptyGraphs = true; // Auto-delete empty graphs - if false then DROP GRAPH <foo> is needed.
+    protected boolean allowEmptyGraphs; // If false then auto-delete empty graphs - if true then DROP GRAPH <foo> is needed.
 
     protected Collection<DatasetGraphIndexPlugin> indexers = Collections.synchronizedSet(new HashSet<>());
 
@@ -95,11 +95,11 @@ public class DatasetGraphFromTxnMgr
 
     public static LoadingCache<Array<String>, SyncedDataset> createCache(
             TxnMgr txnMgr,
-            boolean autoDeleteEmptyGraphs,
+            boolean allowEmptyGraphs,
             CacheBuilder<Array<String>, SyncedDataset> cacheBuilder) {
         LoadingCache<Array<String>, SyncedDataset> result = cacheBuilder
             .removalListener(ev -> {
-                logger.debug("Cache eviction of dataset graph for " + ev.getKey());
+                logger.info("Cache eviction of dataset graph for " + ev.getKey());
                 SyncedDataset sd = (SyncedDataset)ev.getValue();
                 sd.save();
             })
@@ -114,9 +114,9 @@ public class DatasetGraphFromTxnMgr
 
                     // Path relPath = r// resRepo.getRelPath(key);
                     Path absPath = PathUtils.resolve(rootPath, key);
-                    FileSync fs = FileSync.create(absPath.resolve("data.trig"), autoDeleteEmptyGraphs);
+                    FileSync fs = FileSync.create(absPath.resolve("data.trig"), !allowEmptyGraphs);
 
-                    return new SyncedDataset(fs, autoDeleteEmptyGraphs);
+                    return new SyncedDataset(fs, allowEmptyGraphs);
                 }
             });
         return result;
@@ -143,7 +143,7 @@ public class DatasetGraphFromTxnMgr
     public DatasetGraphFromTxnMgr(
             boolean useJournal,
             TxnMgr txnMgr,
-            boolean autoDeleteEmptyGraphs,
+            boolean allowEmptyGraphs,
             boolean isParallel,
             Collection<DatasetGraphIndexPlugin> indexers,
             CacheBuilder<?, ?> cacheBuilder) {
@@ -151,9 +151,9 @@ public class DatasetGraphFromTxnMgr
         this.useJournal = useJournal;
         this.txnMgr = txnMgr;
         this.indexers = indexers;
-        this.autoDeleteEmptyGraphs = autoDeleteEmptyGraphs;
+        this.allowEmptyGraphs = allowEmptyGraphs;
         this.isParallel = isParallel;
-        this.syncCache = createCache(txnMgr, autoDeleteEmptyGraphs, (CacheBuilder<Array<String>, SyncedDataset>)cacheBuilder);
+        this.syncCache = createCache(txnMgr, allowEmptyGraphs, (CacheBuilder<Array<String>, SyncedDataset>)cacheBuilder);
     }
 
 
@@ -575,7 +575,7 @@ public class DatasetGraphFromTxnMgr
                 // dg.delete(g, s, p, o);
                 graph.delete(s, p, o);
 
-                if (autoDeleteEmptyGraphs) {
+                if (!allowEmptyGraphs) {
                     boolean isEmptyGraph = graph.isEmpty();
                     if (isEmptyGraph) {
                         dg.getRemovedGraphs().add(g);
@@ -619,7 +619,9 @@ public class DatasetGraphFromTxnMgr
             }
 
             DatasetGraphDiff dg = synced.get();
-            boolean isDirty = mutator.test(dg);
+            org.apache.jena.system.Txn.executeWrite(dg, () -> mutator.test(dg));
+
+            // boolean isDirty = mutator.test(dg);
 //			if (isDirty) {
 //				synced.setDirty(true);
 //			}

@@ -23,7 +23,6 @@ import org.apache.jena.riot.Lang;
 import org.apache.jena.riot.RDFDataMgr;
 import org.apache.jena.riot.RDFFormat;
 import org.apache.jena.sparql.core.DatasetGraph;
-import org.apache.jena.sparql.core.DatasetGraphFactory;
 import org.apache.jena.sparql.core.Quad;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -108,12 +107,12 @@ public class SyncedDataset {
     protected DatasetGraph originalState;
     protected DatasetGraphDiff diff = null;
 
-    protected boolean doNotWriteEmptyGraphs;
+    protected boolean allowEmptyGraphs;
 
-    public SyncedDataset(FileSync fileSync, boolean doNotWriteEmptyGraphs) {
+    public SyncedDataset(FileSync fileSync, boolean allowEmptyGraphs) {
         super();
         this.fileSync = fileSync;
-        this.doNotWriteEmptyGraphs = doNotWriteEmptyGraphs;
+        this.allowEmptyGraphs = allowEmptyGraphs;
     }
 
 
@@ -310,6 +309,9 @@ public class SyncedDataset {
                 fileSync.putContent(out -> {
                     // FIXME We need to derive a new dataset (view) that has
                     // all empty graphs from diff removed (hidden)
+
+                    // FIXME Somehow 'allowEmptyGraphs' is not used here
+
                     boolean isEmpty = isEffectivelyEmpty(diff);
 
                     if (!isEmpty) {

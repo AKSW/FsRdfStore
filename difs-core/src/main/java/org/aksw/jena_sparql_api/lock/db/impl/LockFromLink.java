@@ -72,7 +72,7 @@ public class LockFromLink
                         result[0] = true;
                         // Nothing todo; we already own the lock
                     } else {
-                        throw new RuntimeException("Cannot lock for " + ownerKey + " because it is owned by " + currentOwnerKey);
+                        throw new RuntimeException("Cannot acquire lock at " + targetPath + " for owner " + ownerKey + " because it is owned by '" + currentOwnerKey + "'");
                     }
                 }
             });
