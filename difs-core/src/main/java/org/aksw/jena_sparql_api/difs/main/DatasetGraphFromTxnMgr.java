@@ -31,7 +31,6 @@ import org.aksw.jena_sparql_api.txn.api.TxnUtils;
 import org.aksw.jena_sparql_api.utils.IteratorClosable;
 import org.aksw.jena_sparql_api.utils.model.DatasetGraphDiff;
 import org.apache.jena.graph.Graph;
-import org.apache.jena.graph.GraphUtil;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.Triple;
 import org.apache.jena.query.ReadWrite;
@@ -176,11 +175,11 @@ public class DatasetGraphFromTxnMgr
     @Override
     public void begin(TxnType type) {
         // TODO We treat READ_PROMOTE as write which is not optimal
-        if (TxnType.READ_PROMOTE.equals(type)) {
-            begin(TxnType.WRITE);
-        } else {
-            begin(TxnType.convert(type));
-        }
+        ReadWrite rw = TxnType.READ_PROMOTE.equals(type)
+            ? ReadWrite.WRITE
+            : TxnType.convert(type);
+
+        begin(rw);
     }
 
     @Override
