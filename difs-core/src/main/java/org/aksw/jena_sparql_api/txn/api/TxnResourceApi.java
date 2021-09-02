@@ -13,46 +13,52 @@ import org.aksw.jena_sparql_api.txn.TxnComponent;
  * This means that most methods such as
  * declareAccess, undeclareAccess and isVisible are interpreted
  * w.r.t. the underlying transaction.
- * 
- * 
+ *
+ *
  * @author raven
  *
  */
 public interface TxnResourceApi
-	extends TxnComponent
+    extends TxnComponent
 {
-	String[] getResourceKey();
-	ReadWriteLockWithOwnership getTxnResourceLock();
+    String[] getResourceKey();
+    ReadWriteLockWithOwnership getTxnResourceLock();
 
-	
-	Instant getLastModifiedDate() throws IOException;
 
-	void declareAccess();
-	void undeclareAccess();
-	
-	/** Whether the resource is visible to the transaction */
-	boolean isVisible();
-	
-	FileSync getFileSync();
-	
-	/** Convenience short hand to lock the resource for this transaction */
-	default void lock(boolean write) {
-		ReadWriteLockWithOwnership txnResourceLock = getTxnResourceLock();
-		if (write) {
-			txnResourceLock.writeLock().lock();
-		} else {
-			txnResourceLock.readLock().lock();
-		}
-	}
+    Instant getLastModifiedDate() throws IOException;
 
-	
-	/** Convenience short hand to unlock either lock */
-	default void unlock() {
-		ReadWriteLockWithOwnership txnResourceLock = getTxnResourceLock();
+    void declareAccess();
+    void undeclareAccess();
 
-		txnResourceLock.readLock().unlock();
-		txnResourceLock.writeLock().unlock();
-	}
+    /** Whether the resource is visible to the transaction */
+    boolean isVisible();
+
+
+    /**
+     * A container to get/set the new content for the resource
+     * Once the transaction completes the old content will be replaced with the new one.
+     * On rollback, the new-but-uncommitted content will by discarded
+     */
+    FileSync getFileSync();
+
+    /** Convenience short hand to lock the resource for this transaction */
+    default void lock(boolean write) {
+        ReadWriteLockWithOwnership txnResourceLock = getTxnResourceLock();
+        if (write) {
+            txnResourceLock.writeLock().lock();
+        } else {
+            txnResourceLock.readLock().lock();
+        }
+    }
+
+
+    /** Convenience short hand to unlock either lock */
+    default void unlock() {
+        ReadWriteLockWithOwnership txnResourceLock = getTxnResourceLock();
+
+        txnResourceLock.readLock().unlock();
+        txnResourceLock.writeLock().unlock();
+    }
 
 }
 
@@ -60,18 +66,18 @@ public interface TxnResourceApi
 //	public Instant getLastModifiedDate() throws IOException {
 //		return fileSync.getLastModifiedTime();
 //	}
-//	
+//
 //	public Path getResFilePath() {
 //		return resFilePath;
 //	};
-//	
+//
 //
 //	public boolean isVisible() {
 //		boolean result;
-//		
+//
 //		if (isLockedHere()) {
 //			result = true;
-//		} else {				
+//		} else {
 //			Instant txnTime = getCreationInstant();
 //			Instant resTime;
 //			try {
@@ -81,22 +87,22 @@ public interface TxnResourceApi
 //			}
 //
 //			// If the resource's modified time is null then it did not exist yet
-//			result = resTime != null && resTime.isBefore(txnTime); 
+//			result = resTime != null && resTime.isBefore(txnTime);
 //		}
 //
 //		return result;
 //	}
-//	
+//
 //	public boolean isPersistent() {
 //		return true;
 //	}
-//	
+//
 //	public void declareAccess() {
 //		if (isPersistent()) {
 //			declareAccessCore();
 //		}
 //	}
-//	
+//
 //	public void declareAccessCore() {
 //		// Path actualLinkTarget = txnFolder.relativize(resShadowAbsPath);
 //		Path actualLinkTarget = txnFolder.relativize(resFileAbsPath);
@@ -107,14 +113,14 @@ public interface TxnResourceApi
 //				if (!link.equals(actualLinkTarget)) {
 //					throw new RuntimeException(String.format("Validation failed: Attempted to declare access to %s but a different %s already existed ", actualLinkTarget, link));
 //				}
-//				
+//
 //			} else {
 //				logger.debug("Declaring access from " + journalEntryFile + " to " + actualLinkTarget);
 //				txnMgr.symlinkStrategy.createSymbolicLink(journalEntryFile, actualLinkTarget);
 //			}
 //		} catch (IOException e) {
 //			throw new RuntimeException(e);
-//		}			
+//		}
 //	}
 //
 //	public void undeclareAccess() {
@@ -129,7 +135,7 @@ public interface TxnResourceApi
 //			Files.deleteIfExists(journalEntryFile);
 //		} catch (IOException e) {
 //			throw new RuntimeException(e);
-//		}			
+//		}
 //	}
 //
 //	public boolean ownsWriteLock() {
@@ -137,7 +143,7 @@ public interface TxnResourceApi
 //		try {
 //			Path txnLink = txnMgr.symlinkStrategy.readSymbolicLink(writeLockFile);
 //			Path txnAbsLink = writeLockFile.getParent().resolve(txnLink).toAbsolutePath().normalize();
-//			
+//
 //			result = txnAbsLink.equals(txnFolder);
 //		} catch (NoSuchFileException e) {
 //			result = false;
@@ -152,7 +158,7 @@ public interface TxnResourceApi
 //		try {
 //			Path txnLink = txnMgr.symlinkStrategy.readSymbolicLink(readLockFile);
 //			Path txnAbsLink = readLockFile.getParent().resolve(txnLink).toAbsolutePath().normalize();
-//			
+//
 //			result = txnAbsLink.equals(txnFolder);
 //		} catch (NoSuchFileException e) {
 //			result = false;
@@ -165,24 +171,24 @@ public interface TxnResourceApi
 //	public Lock getMgmtLock() {
 //		Lock result = txnMgr.lockMgr.getLock(mgmtLockPath, true);
 //		return result;
-//		
+//
 //	}
-//	
+//
 //	// Whether this txn owns the lock
 //	public boolean isLockedHere() {
-//		boolean result = ownsWriteLock() || ownsReadLock();			
+//		boolean result = ownsWriteLock() || ownsReadLock();
 //		return result;
 //	}
 //
-//	
+//
 //	public Stream<Path> getReadLocks() throws IOException {
 //        PathMatcher pathMatcher = resShadowBasePath.getFileSystem().getPathMatcher("glob:*.read.lock");
-//        		
+//
 //	     return Files.exists(resShadowAbsPath)
 //	    		? Files.list(resShadowAbsPath).filter(pathMatcher::matches)
 //	    		: Stream.empty();
 //	}
-//	
+//
 //	public void lock(boolean write) {
 //		// Check whether we already own the lock
 //		boolean ownsR = ownsReadLock();
@@ -190,7 +196,7 @@ public interface TxnResourceApi
 //
 //
 //		boolean needLock = true;
-//		
+//
 //		if (ownsR) {
 //			if (write) {
 //				unlock();
@@ -206,22 +212,22 @@ public interface TxnResourceApi
 //				// Path writeLockPath = resShadowAbsPath.resolve("write.lock");
 //				if (Files.exists(writeLockFile)) {
 //					throw new RuntimeException("Write lock already exitsts at " + writeLockFile);
-//				}				
-//				
+//				}
+//
 //				if (!write) { // read lock requested
 //				    // TODO add another read lock entry that points to the txn
 //					// String readLockFileName = "txn-" + txnId + ".read.lock";
 //					// Path readLockFile = resShadowPath.resolve(readLockFileName);
-//					
+//
 //					// Use the read lock to link back to the txn that owns it
 //			    	Files.createDirectories(readLockFile.getParent());
-//			    	txnMgr.symlinkStrategy.createSymbolicLink(readLockFile, readLockFile.getParent().relativize(txnFolder));					
+//			    	txnMgr.symlinkStrategy.createSymbolicLink(readLockFile, readLockFile.getParent().relativize(txnFolder));
 //				} else {
 //					boolean existsReadLock;
 //					try (Stream<Path> stream = getReadLocks()) {
 //						existsReadLock = stream.findAny().isPresent();
 //					}
-//					
+//
 //				    if (existsReadLock) {
 //						throw new RuntimeException("Read lock already exitsts at " + writeLockFile);
 //				    } else {
@@ -235,18 +241,18 @@ public interface TxnResourceApi
 //			});
 //		}
 //	}
-//	
+//
 //	public void unlock() {
 //		repeatWithLock(10, 100, this::getMgmtLock, () -> {
 //			Files.deleteIfExists(writeLockFile);
 //			Files.deleteIfExists(readLockFile);
 //			return null;
 //		});
-//		
+//
 //		// If the resource shadow folder is empty try to delete the folder
 //		FileUtilsX.deleteEmptyFolders(resShadowAbsPath, resShadowBasePath);
 //	}
-//	
+//
 //	public FileSync getFileSync() {
 //		return fileSync;
 //	}
@@ -254,7 +260,7 @@ public interface TxnResourceApi
 ////	public InputStream openContent() {
 ////		fileSync.
 ////	}
-//	
+//
 //	public void putContent(Consumer<OutputStream> handler) throws IOException {
 //		throw new UnsupportedOperationException();
 //	}

@@ -84,6 +84,8 @@ public class MainPlayground {
 
     public static void main(String[] args) throws Exception {
 
+//    	Paths.get("/foo/bar");
+//    	Paths
 
 
         // Dataset m = RDFDataMgr.loadDataset("/var/www/webdav/gitalog/store/org.mclient.foobar.baz/data.trig");
@@ -340,6 +342,7 @@ public class MainPlayground {
         StoreDefinition sd = ModelFactory.createDefaultModel().createResource().as(StoreDefinition.class)
                 .setStorePath("store")
                 .setIndexPath("index")
+                .setAllowEmptyGraphs(true)
                 .addIndex("http://dataid.dbpedia.org/ns/core#group", "group", RdfTermIndexerFactoryIriToFolder.class)
                 .addIndex("http://purl.org/dc/terms/hasVersion", "version", RdfIndexerFactoryLexicalForm.class)
                 .addIndex(DCAT.downloadURL.asNode(), "downloadUrl", RdfTermIndexerFactoryIriToFolder.class)

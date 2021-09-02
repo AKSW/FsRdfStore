@@ -1,14 +1,17 @@
-package org.aksw.jena_sparql_api.dataset.file;
+package org.aksw.difs.index.impl;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -17,15 +20,22 @@ import org.aksw.commons.io.util.PathUtils;
 import org.aksw.commons.io.util.SymLinkUtils;
 import org.aksw.commons.io.util.UriToPathUtils;
 import org.aksw.commons.io.util.symlink.SymbolicLinkStrategy;
+import org.aksw.commons.util.array.Array;
 import org.aksw.commons.util.strings.StringUtils;
+import org.aksw.difs.index.api.DatasetGraphIndexPlugin;
 import org.aksw.jena_sparql_api.difs.main.ResourceRepository;
 import org.aksw.jena_sparql_api.txn.FileUtilsX;
 import org.apache.jena.ext.com.google.common.io.MoreFiles;
 import org.apache.jena.graph.Node;
 import org.apache.jena.sparql.core.DatasetGraph;
 import org.apache.jena.sparql.core.Quad;
+import org.apache.jena.sparql.util.Context;
 import org.apache.jena.sparql.util.NodeUtils;
+import org.apache.jena.sparql.util.Symbol;
 
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 
 
@@ -56,6 +66,9 @@ public class DatasetGraphIndexerFromFileSystem
     // protected DatasetGraphFromFileSystem syncedGraph;
     protected ResourceRepository<String> syncedGraph;
 
+
+    protected Symbol indexerKey;
+
     // Extract the symlink strategy from the dataset graph
 //    public static SymlinkStrategy extractSymlinkStrategy(DatasetGraph dg) {
 //    	DatasetGraphFromTxnMgr tdg = (DatasetGraphFromTxnMgr)dg;
@@ -76,6 +89,9 @@ public class DatasetGraphIndexerFromFileSystem
         this.propertyNode = propertyNode;
         this.syncedGraph = syncedGraph;
         this.objectToPath = objectToPath;
+
+        this.indexerKey = Symbol.create("indexer:" + this.getClass() + ":" + propertyNode);
+
     }
 
     public static String[] uriNodeToPath(Node node) {
@@ -181,8 +197,24 @@ public class DatasetGraphIndexerFromFileSystem
 //        Node s = quad.getSubject();
 //        Node p = quad.getPredicate();
 //        Node o = quad.getObject();
-        if (evaluateFind(s, p, o) != null) {
+        Float evalResult = evaluateFind(s, p, o);
+        if (evalResult != null) {
+
+
             String[] idxRelPath = objectToPath.apply(o);
+
+            Quad insertQuad = new Quad(g, s, p, o);
+
+
+            // The delete operation creates an inverted index in the
+            // graph's context
+            // Update it if it exists
+            Context cxt = dg.getContext();
+            Multimap<Array<String>, Quad> invertedIndex = cxt.get(indexerKey);
+            if (invertedIndex != null) {
+                invertedIndex.put(Array.wrap(idxRelPath), insertQuad);
+            }
+
 
 //            Path idxRelPath = UriToPathUtils.resolvePath(oRelPath);
             Path idxFullPath = PathUtils.resolve(basePath, idxRelPath);
@@ -222,6 +254,22 @@ public class DatasetGraphIndexerFromFileSystem
     }
 
 
+    protected Multimap<Array<String>, Quad> createInvertedIndex(DatasetGraph dg) {
+        Multimap<Array<String>, Quad> keyToQuads = HashMultimap.create();
+
+        Streams.stream(dg.find(Node.ANY, Node.ANY, propertyNode, Node.ANY))
+                .flatMap(q -> {
+                    String[] v = objectToPath.apply(q.getObject());
+                    return Optional.ofNullable(v)
+                        .map(vv -> new SimpleEntry<>(Array.wrap(vv), q))
+                        .stream();
+                })
+                .forEach(e -> keyToQuads.put(e.getKey(), e.getValue()));
+
+        return keyToQuads;
+    }
+
+
     /**
      * Delete a quad from the index.
      *
@@ -239,17 +287,30 @@ public class DatasetGraphIndexerFromFileSystem
 
             Quad deleteQuad = new Quad(g, s, p, o);
 
+            // FIXME This is a slow operation - needs caching in general
             // Check whether any other quad in the same graph wrt. dg maps to the same idxRelPath - if so do not delete the symlink
-            long count = Streams.stream(dg.find(g, Node.ANY, p, Node.ANY))
-                .filter(q -> !q.equals(deleteQuad))
-                .filter(q -> {
-                    String[] otherRelPath = objectToPath.apply(q.getObject());
-                    return otherRelPath.equals(idxRelPath);
-                })
-                .count();
+//            long count = Streams.stream(dg.find(g, Node.ANY, p, Node.ANY))
+//                .filter(q -> !q.equals(deleteQuad))
+//                .filter(q -> {
+//                    String[] otherRelPath = objectToPath.apply(q.getObject());
+//                    return otherRelPath.equals(idxRelPath);
+//                })
+//                .count();
+//
+//            if (count == 0) {
 
-            if (count == 0) {
+            Context cxt = dg.getContext();
+            Multimap<Array<String>, Quad> invertedIndex = cxt.get(indexerKey);
+            if (invertedIndex == null) {
+                invertedIndex = createInvertedIndex(dg);
+                cxt.put(indexerKey, invertedIndex);
+            }
 
+            Set<Quad> quadsMappingToSameIndexKey = (Set<Quad>)invertedIndex.get(Array.wrap(idxRelPath));
+            quadsMappingToSameIndexKey.remove(deleteQuad);
+
+
+            if (quadsMappingToSameIndexKey.isEmpty()) {
                 Path idxFullPath = PathUtils.resolve(basePath, idxRelPath);
 
     // Should we sanity check that the symlink refers to the exact same target
@@ -444,6 +505,13 @@ public class DatasetGraphIndexerFromFileSystem
 
         // Load all graphs that are linked to and call find on the union
     }
+
+    @Override
+    public String toString() {
+        return "DatasetGraphIndexerFromFileSystem [propertyNode=" + propertyNode + ", tgtFilename=" + tgtFilename + "]";
+    }
+
+
 
 //    public Iterator<Node> listGraphNodes(Node s, Node p, Node o) {
 //        if (evaluateFind(s, p, o) == null) {

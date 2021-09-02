@@ -22,12 +22,12 @@ import java.util.stream.Stream;
 
 import org.aksw.commons.io.util.symlink.SymbolicLinkStrategy;
 import org.aksw.commons.io.util.symlink.SymbolicLinkStrategyStandard;
+import org.aksw.difs.index.api.DatasetGraphIndexPlugin;
 import org.aksw.difs.index.api.RdfTermIndexerFactory;
+import org.aksw.difs.index.impl.DatasetGraphIndexerFromFileSystem;
 import org.aksw.difs.sys.vocab.jena.DIFS;
 import org.aksw.difs.system.domain.IndexDefinition;
 import org.aksw.difs.system.domain.StoreDefinition;
-import org.aksw.jena_sparql_api.dataset.file.DatasetGraphIndexPlugin;
-import org.aksw.jena_sparql_api.dataset.file.DatasetGraphIndexerFromFileSystem;
 import org.aksw.jena_sparql_api.difs.main.DatasetGraphFromTxnMgr;
 import org.aksw.jena_sparql_api.difs.main.ResourceRepoImpl;
 import org.aksw.jena_sparql_api.difs.main.ResourceRepository;

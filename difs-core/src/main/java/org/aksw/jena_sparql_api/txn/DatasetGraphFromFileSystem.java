@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.aksw.commons.io.util.UriToPathUtils;
-import org.aksw.jena_sparql_api.dataset.file.DatasetGraphIndexPlugin;
+import org.aksw.difs.index.api.DatasetGraphIndexPlugin;
 import org.aksw.jena_sparql_api.dataset.file.DatasetGraphMapLink2;
 import org.aksw.jena_sparql_api.dataset.file.GraphMakerFromFileSystem;
 import org.aksw.jena_sparql_api.dataset.file.LockPolicy;

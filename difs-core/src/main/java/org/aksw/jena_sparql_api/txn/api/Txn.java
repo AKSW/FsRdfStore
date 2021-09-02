@@ -5,6 +5,20 @@ import java.time.Instant;
 import java.time.temporal.TemporalAmount;
 import java.util.stream.Stream;
 
+/**
+ * A transaction can hold locks to several resources.
+ * The resources (potentially) locked by a transaction can be accessed using streamAccessedResourcePaths().
+ *
+ *
+ * References to resources can be acquired via {@link #getResourceApi(String[])}.
+ *
+ *
+ * TODO Consider replace of String[] with Array<String>; the former is a pain to use with e.g. guava cache
+ * TODO Consider replace of Stream with Flowable; the former does not have proper resource management
+ *
+ * @author raven
+ *
+ */
 public interface Txn
 {
     TxnMgr getTxnMgr();

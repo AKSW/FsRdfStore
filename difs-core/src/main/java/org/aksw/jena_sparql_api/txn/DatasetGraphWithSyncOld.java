@@ -20,7 +20,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import org.aksw.jena_sparql_api.dataset.file.DatasetGraphIndexPlugin;
+import org.aksw.difs.index.api.DatasetGraphIndexPlugin;
 import org.aksw.jena_sparql_api.dataset.file.FileSyncBase;
 import org.aksw.jena_sparql_api.dataset.file.FileSyncGraph;
 import org.aksw.jena_sparql_api.dataset.file.LockPolicy;
@@ -38,6 +38,7 @@ import org.apache.jena.riot.RDFFormat;
 import org.apache.jena.sparql.JenaTransactionException;
 import org.apache.jena.sparql.core.DatasetChanges;
 import org.apache.jena.sparql.core.DatasetGraph;
+import org.apache.jena.sparql.core.DatasetGraphFactory;
 import org.apache.jena.sparql.core.DatasetGraphWrapper;
 import org.apache.jena.sparql.core.GraphView;
 import org.apache.jena.sparql.core.Quad;
@@ -148,7 +149,7 @@ public class DatasetGraphWithSyncOld
 
     public DatasetGraphWithSyncOld(Path path, LockPolicy lockPolicy) throws Exception {
 //        this(DatasetGraphFactory.createTxnMem(), path, lockPolicy);
-        this(new DatasetGraphDiff(), path, lockPolicy);
+        this(DatasetGraphDiff.createTxn(DatasetGraphFactory.createTxnMem()), path, lockPolicy);
     }
 
     public DatasetGraphWithSyncOld(DatasetGraph dsg, Path path, LockPolicy lockPolicy) throws Exception {

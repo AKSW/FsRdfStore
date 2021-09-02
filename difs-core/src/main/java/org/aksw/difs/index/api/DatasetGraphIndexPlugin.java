@@ -1,4 +1,4 @@
-package org.aksw.jena_sparql_api.dataset.file;
+package org.aksw.difs.index.api;
 
 import java.util.stream.Stream;
 
@@ -6,6 +6,11 @@ import org.apache.jena.graph.Node;
 import org.apache.jena.sparql.core.DatasetGraph;
 
 public interface DatasetGraphIndexPlugin {
+    /**
+     * Return an estimate for how well this index can serve the given pattern
+     *
+     * @return A cost estimate for matching the arguments; null if the index cannot match the pattern
+     */
     public Float evaluateFind(Node s, Node p, Node o);
 
     /**
@@ -19,8 +24,12 @@ public interface DatasetGraphIndexPlugin {
      * @return
      */
     // public Iterator<Node> listGraphNodes(Node s, Node p, Node o);
+
+    /** Return a stream of resource keys for which there may be graphs
+     *  potentially containing matching triples */
     public Stream<String[]> listGraphNodes(DatasetGraph dg, Node s, Node p, Node o);
 
     public void add(DatasetGraph dg, Node g, Node s, Node p, Node o);
     public void delete(DatasetGraph dg, Node g, Node s, Node p, Node o);
 }
+

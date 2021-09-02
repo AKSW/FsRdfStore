@@ -23,6 +23,7 @@ import org.apache.jena.riot.Lang;
 import org.apache.jena.riot.RDFDataMgr;
 import org.apache.jena.riot.RDFFormat;
 import org.apache.jena.sparql.core.DatasetGraph;
+import org.apache.jena.sparql.core.DatasetGraphFactory;
 import org.apache.jena.sparql.core.Quad;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -107,12 +108,12 @@ public class SyncedDataset {
     protected DatasetGraph originalState;
     protected DatasetGraphDiff diff = null;
 
-    protected boolean allowEmptyGraphs;
+    // TODO allowEmptyGraphs is probably not needed in here - the diff has a set of removed graphs
+    // and the outside code can determine whether to mark a graph as removed if it is empty
 
-    public SyncedDataset(FileSync fileSync, boolean allowEmptyGraphs) {
+    public SyncedDataset(FileSync fileSync) {
         super();
         this.fileSync = fileSync;
-        this.allowEmptyGraphs = allowEmptyGraphs;
     }
 
 
@@ -165,8 +166,13 @@ public class SyncedDataset {
     }
 
     protected DatasetGraph newDatasetGraph() {
-        return DatasetGraphFactoryEx.createInsertOrderPreservingDatasetGraph();
-        // return new DatasetGraphFactory().createTxnMem();
+//        return DatasetGraphFactoryEx.createInsertOrderPreservingDatasetGraph();
+         // return new DatasetGraphFactory().createTxnMem();
+        return DatasetGraphFactory.create();
+    }
+
+    protected DatasetGraphDiff newDatasetGraphDiff(DatasetGraph base) {
+        return DatasetGraphDiff.createNonTxn(base);
     }
 
     public void forceLoad() {
@@ -199,11 +205,11 @@ public class SyncedDataset {
             Set<Quad> addedQuads = Sets.difference(newQuads, oldQuads);
             Set<Quad> removedQuads = Sets.difference(oldQuads, newQuads);
 
-            diff = new DatasetGraphDiff(originalState);
+            diff = newDatasetGraphDiff(originalState);
             addedQuads.forEach(diff.getAdded()::add);
             removedQuads.forEach(diff.getRemoved()::add);
         } else {
-            diff = new DatasetGraphDiff(originalState);
+            diff = newDatasetGraphDiff(originalState);
         }
     }
 
@@ -309,8 +315,6 @@ public class SyncedDataset {
                 fileSync.putContent(out -> {
                     // FIXME We need to derive a new dataset (view) that has
                     // all empty graphs from diff removed (hidden)
-
-                    // FIXME Somehow 'allowEmptyGraphs' is not used here
 
                     boolean isEmpty = isEffectivelyEmpty(diff);
 

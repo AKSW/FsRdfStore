@@ -19,7 +19,7 @@ import java.util.stream.Stream;
 import org.aksw.commons.io.util.PathUtils;
 import org.aksw.commons.rx.op.RxOps;
 import org.aksw.commons.util.array.Array;
-import org.aksw.jena_sparql_api.dataset.file.DatasetGraphIndexPlugin;
+import org.aksw.difs.index.api.DatasetGraphIndexPlugin;
 import org.aksw.jena_sparql_api.txn.DatasetGraphFromFileSystem;
 import org.aksw.jena_sparql_api.txn.FileSync;
 import org.aksw.jena_sparql_api.txn.FileUtilsX;
@@ -31,6 +31,7 @@ import org.aksw.jena_sparql_api.txn.api.TxnUtils;
 import org.aksw.jena_sparql_api.utils.IteratorClosable;
 import org.aksw.jena_sparql_api.utils.model.DatasetGraphDiff;
 import org.apache.jena.graph.Graph;
+import org.apache.jena.graph.GraphUtil;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.Triple;
 import org.apache.jena.query.ReadWrite;
@@ -45,6 +46,7 @@ import org.apache.jena.sparql.core.GraphView;
 import org.apache.jena.sparql.core.Quad;
 import org.apache.jena.sparql.core.Transactional;
 import org.apache.jena.util.iterator.ClosableIterator;
+import org.apache.jena.util.iterator.ExtendedIterator;
 import org.jgrapht.GraphPath;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -116,7 +118,7 @@ public class DatasetGraphFromTxnMgr
                     Path absPath = PathUtils.resolve(rootPath, key);
                     FileSync fs = FileSync.create(absPath.resolve("data.trig"), !allowEmptyGraphs);
 
-                    return new SyncedDataset(fs, allowEmptyGraphs);
+                    return new SyncedDataset(fs);
                 }
             });
         return result;
@@ -576,7 +578,8 @@ public class DatasetGraphFromTxnMgr
                 graph.delete(s, p, o);
 
                 if (!allowEmptyGraphs) {
-                    boolean isEmptyGraph = graph.isEmpty();
+//                    boolean isEmptyGraph = graph.isEmpty();
+                  boolean isEmptyGraph = isEmpty(graph);
                     if (isEmptyGraph) {
                         dg.getRemovedGraphs().add(g);
                     }
@@ -586,6 +589,18 @@ public class DatasetGraphFromTxnMgr
             }
             return r;
         });
+    }
+
+    // GraphView's isEmpty method is not implemented efficiently - it uses size() which iterates all triples
+    public static boolean isEmpty(Graph graph) {
+        boolean result;
+        ExtendedIterator<Triple> it = graph.find();
+        try {
+            result = !it.hasNext();
+        } finally {
+            it.close();
+        }
+        return result;
     }
 
     /**
