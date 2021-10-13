@@ -10,13 +10,13 @@ import java.util.stream.Stream;
 
 import org.aksw.commons.collections.utils.StreamUtils;
 import org.aksw.commons.jena.jgrapht.PseudoGraphJenaGraph;
+import org.aksw.commons.lock.db.api.LockStore;
+import org.aksw.commons.lock.db.api.ResourceLock;
+import org.aksw.commons.txn.api.Txn;
+import org.aksw.commons.txn.api.TxnMgr;
 import org.aksw.commons.util.array.Array;
 import org.aksw.commons.util.memoize.MemoizedFunction;
 import org.aksw.commons.util.memoize.MemoizedFunctionImpl;
-import org.aksw.jena_sparql_api.lock.db.api.LockStore;
-import org.aksw.jena_sparql_api.lock.db.api.ResourceLock;
-import org.aksw.jena_sparql_api.txn.api.Txn;
-import org.aksw.jena_sparql_api.txn.api.TxnMgr;
 import org.apache.jena.graph.Graph;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.NodeFactory;

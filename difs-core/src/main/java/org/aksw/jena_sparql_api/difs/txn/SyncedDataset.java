@@ -12,11 +12,11 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.Set;
 
+import org.aksw.commons.txn.impl.ContentSync;
+import org.aksw.commons.txn.impl.FileSyncImpl;
+import org.aksw.commons.txn.impl.PathState;
 import org.aksw.jena_sparql_api.rx.DatasetGraphFactoryEx;
 import org.aksw.jena_sparql_api.rx.RDFDataMgrEx;
-import org.aksw.jena_sparql_api.txn.ContentSync;
-import org.aksw.jena_sparql_api.txn.FileSyncImpl;
-import org.aksw.jena_sparql_api.txn.PathState;
 import org.aksw.jena_sparql_api.utils.SetFromDatasetGraph;
 import org.aksw.jena_sparql_api.utils.model.DatasetGraphDiff;
 import org.apache.commons.lang3.exception.ExceptionUtils;

@@ -9,10 +9,10 @@ import java.nio.file.attribute.FileTime;
 import java.util.Objects;
 import java.util.function.Supplier;
 
+import org.aksw.commons.lock.FileLockUtils;
 import org.aksw.commons.util.ref.Ref;
 import org.aksw.commons.util.ref.RefImpl;
 import org.aksw.jena_sparql_api.concurrent.util.Synchronized;
-import org.aksw.jena_sparql_api.lock.FileLockUtils;
 import org.apache.jena.dboe.base.file.ProcessFileLock;
 import org.apache.jena.query.ReadWrite;
 import org.apache.jena.query.TxnType;

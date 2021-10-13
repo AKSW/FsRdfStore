@@ -21,12 +21,12 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.aksw.commons.io.util.UriToPathUtils;
+import org.aksw.commons.lock.LockManager;
 import org.aksw.difs.index.api.DatasetGraphIndexPlugin;
 import org.aksw.jena_sparql_api.dataset.file.DatasetGraphMapLink2;
 import org.aksw.jena_sparql_api.dataset.file.GraphMakerFromFileSystem;
 import org.aksw.jena_sparql_api.dataset.file.LockPolicy;
 import org.aksw.jena_sparql_api.dataset.file.TxnDataset2Graph2;
-import org.aksw.jena_sparql_api.lock.LockManager;
 import org.aksw.jena_sparql_api.utils.model.DatasetGraphDiff;
 import org.apache.jena.atlas.iterator.IteratorConcat;
 import org.apache.jena.ext.com.google.common.collect.Maps;
