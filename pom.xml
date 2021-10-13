@@ -113,6 +113,12 @@
 				<artifactId>aksw-commons-util</artifactId>
 				<version>${aksw.commons.version}</version>
 			</dependency>
+			
+			<dependency>
+				<groupId>org.aksw.commons</groupId>
+				<artifactId>aksw-commons-txn</artifactId>
+				<version>${aksw.commons.version}</version>
+			</dependency>
 
 			<dependency>
 				<groupId>org.aksw.jena-sparql-api</groupId>

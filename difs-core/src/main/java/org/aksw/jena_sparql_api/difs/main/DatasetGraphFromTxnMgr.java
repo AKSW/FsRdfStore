@@ -20,14 +20,15 @@ import org.aksw.commons.io.util.PathUtils;
 import org.aksw.commons.rx.op.RxOps;
 import org.aksw.commons.util.array.Array;
 import org.aksw.difs.index.api.DatasetGraphIndexPlugin;
-import org.aksw.jena_sparql_api.txn.DatasetGraphFromFileSystem;
-import org.aksw.jena_sparql_api.txn.FileSync;
+import org.aksw.jena_sparql_api.difs.txn.DatasetGraphFromFileSystem;
+import org.aksw.jena_sparql_api.difs.txn.SyncedDataset;
+import org.aksw.jena_sparql_api.difs.txn.TxnUtils;
+import org.aksw.jena_sparql_api.txn.FileSyncImpl;
 import org.aksw.jena_sparql_api.txn.FileUtilsX;
-import org.aksw.jena_sparql_api.txn.SyncedDataset;
+import org.aksw.jena_sparql_api.txn.ResourceRepository;
 import org.aksw.jena_sparql_api.txn.api.Txn;
 import org.aksw.jena_sparql_api.txn.api.TxnMgr;
 import org.aksw.jena_sparql_api.txn.api.TxnResourceApi;
-import org.aksw.jena_sparql_api.txn.api.TxnUtils;
 import org.aksw.jena_sparql_api.utils.IteratorClosable;
 import org.aksw.jena_sparql_api.utils.model.DatasetGraphDiff;
 import org.apache.jena.graph.Graph;
@@ -115,7 +116,7 @@ public class DatasetGraphFromTxnMgr
 
                     // Path relPath = r// resRepo.getRelPath(key);
                     Path absPath = PathUtils.resolve(rootPath, key);
-                    FileSync fs = FileSync.create(absPath.resolve("data.trig"), !allowEmptyGraphs);
+                    FileSyncImpl fs = FileSyncImpl.create(absPath.resolve("data.trig"), !allowEmptyGraphs);
 
                     return new SyncedDataset(fs);
                 }
@@ -235,7 +236,7 @@ public class DatasetGraphFromTxnMgr
                         }
 
                         // Precommit: Copy any new data files to their final location (but keep backups)
-                        FileSync fs = api.getFileSync();
+                        FileSyncImpl fs = api.getFileSync();
                         fs.preCommit();
 
                         // Update the in memory cache

@@ -83,6 +83,35 @@ import com.sshtools.vfs2nio.Vfs2NioFileSystemProvider;
 public class MainPlayground {
 
     public static void main(String[] args) throws Exception {
+        Stopwatch sw = Stopwatch.createStarted();
+
+        // Writing 1mio files with a little content takes ~45 seconds (dell xps 13 2017)
+        if (true) {
+            Path base = Paths.get("/tmp/test");
+            Files.createDirectories(base);
+            int length = 7;
+            for (int i = 0; i < 1000000; ++i) {
+                String name = String.format("%1$" + length + "s", "" + i).replace(' ', '0');
+
+
+                Path file;
+
+//                String d = name.substring(0, 2);
+//                Path dir = base.resolve(d);
+//                Files.createDirectories(dir);
+//                Path file = dir.resolve(name.substring(2));
+                file = base.resolve(name);
+
+
+                //Files.createFile(file);
+                Files.write(file, name.getBytes(), StandardOpenOption.CREATE);
+            }
+            System.out.println(sw.elapsed(TimeUnit.MILLISECONDS));
+            System.exit(0);
+        }
+
+
+
 
 //    	Paths.get("/foo/bar");
 //    	Paths

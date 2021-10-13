@@ -3,7 +3,7 @@ package org.aksw.jena_sparql_api.dataset.file;
 import java.nio.file.Path;
 
 import org.aksw.commons.io.util.UriToPathUtils;
-import org.aksw.jena_sparql_api.txn.DatasetGraphWithSyncOld;
+import org.aksw.jena_sparql_api.difs.txn.DatasetGraphWithSyncOld;
 import org.apache.jena.graph.Graph;
 import org.apache.jena.graph.Node;
 import org.apache.jena.sparql.core.DatasetGraph;

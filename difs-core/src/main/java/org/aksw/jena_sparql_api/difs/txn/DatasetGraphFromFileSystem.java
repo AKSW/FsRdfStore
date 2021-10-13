@@ -1,4 +1,4 @@
-package org.aksw.jena_sparql_api.txn;
+package org.aksw.jena_sparql_api.difs.txn;
 
 import java.io.IOException;
 import java.nio.file.Files;

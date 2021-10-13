@@ -6,10 +6,10 @@ import java.time.Duration;
 import java.util.Set;
 
 import org.aksw.difs.builder.DifsFactory;
+import org.aksw.jena_sparql_api.difs.txn.TxnUtils;
 import org.aksw.jena_sparql_api.txn.api.Txn;
 import org.aksw.jena_sparql_api.txn.api.TxnMgr;
 import org.aksw.jena_sparql_api.txn.api.TxnResourceApi;
-import org.aksw.jena_sparql_api.txn.api.TxnUtils;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.Triple;
 import org.apache.jena.query.ReadWrite;

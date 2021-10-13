@@ -1,4 +1,4 @@
-package org.aksw.jena_sparql_api.txn.api;
+package org.aksw.jena_sparql_api.difs.txn;
 
 import java.io.IOException;
 import java.util.Iterator;
@@ -15,6 +15,8 @@ import org.aksw.commons.util.memoize.MemoizedFunction;
 import org.aksw.commons.util.memoize.MemoizedFunctionImpl;
 import org.aksw.jena_sparql_api.lock.db.api.LockStore;
 import org.aksw.jena_sparql_api.lock.db.api.ResourceLock;
+import org.aksw.jena_sparql_api.txn.api.Txn;
+import org.aksw.jena_sparql_api.txn.api.TxnMgr;
 import org.apache.jena.graph.Graph;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.NodeFactory;

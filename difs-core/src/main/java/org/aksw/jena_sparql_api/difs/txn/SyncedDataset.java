@@ -1,4 +1,4 @@
-package org.aksw.jena_sparql_api.txn;
+package org.aksw.jena_sparql_api.difs.txn;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -14,6 +14,9 @@ import java.util.Set;
 
 import org.aksw.jena_sparql_api.rx.DatasetGraphFactoryEx;
 import org.aksw.jena_sparql_api.rx.RDFDataMgrEx;
+import org.aksw.jena_sparql_api.txn.ContentSync;
+import org.aksw.jena_sparql_api.txn.FileSyncImpl;
+import org.aksw.jena_sparql_api.txn.PathState;
 import org.aksw.jena_sparql_api.utils.SetFromDatasetGraph;
 import org.aksw.jena_sparql_api.utils.model.DatasetGraphDiff;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -102,7 +105,7 @@ public class SyncedDataset {
         }
     }
 
-    protected FileSync fileSync;
+    protected FileSyncImpl fileSync;
 
     protected State state;
     protected DatasetGraph originalState;
@@ -111,7 +114,7 @@ public class SyncedDataset {
     // TODO allowEmptyGraphs is probably not needed in here - the diff has a set of removed graphs
     // and the outside code can determine whether to mark a graph as removed if it is empty
 
-    public SyncedDataset(FileSync fileSync) {
+    public SyncedDataset(FileSyncImpl fileSync) {
         super();
         this.fileSync = fileSync;
     }
@@ -241,7 +244,7 @@ public class SyncedDataset {
         return diff.getRemoved();
     }
 
-    public FileSync getEntity() {
+    public ContentSync getEntity() {
         return fileSync;
     }
 
