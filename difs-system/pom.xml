@@ -15,8 +15,8 @@
 
 	<dependencies>
 		<dependency>
-			<groupId>org.aksw.jena-sparql-api</groupId>
-			<artifactId>jena-sparql-api-server-standalone</artifactId>
+			<groupId>org.aksw.jenax</groupId>
+			<artifactId>jenax-server-standalone</artifactId>
 		</dependency>
 
 

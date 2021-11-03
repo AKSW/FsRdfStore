@@ -18,29 +18,24 @@ import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
+import javax.servlet.http.HttpServletRequest;
+
 import org.aksw.commons.io.block.impl.BlockSources;
 import org.aksw.commons.io.util.symlink.SymbolicLinkStrategies;
+import org.aksw.commons.util.entity.EntityInfo;
 import org.aksw.difs.builder.DifsFactory;
-import org.aksw.difs.engine.QueryEngineMainQuadForm;
-import org.aksw.difs.engine.QueryExecutionFactoryQuadForm;
-import org.aksw.difs.engine.UpdateEngineMainQuadForm;
 import org.aksw.difs.index.impl.RdfIndexerFactoryLexicalForm;
 import org.aksw.difs.index.impl.RdfTermIndexerFactoryIriToFolder;
 import org.aksw.difs.system.domain.StoreDefinition;
-import org.aksw.jena_sparql_api.arq.core.service.OpExecutorWithCustomServiceExecutors;
 import org.aksw.jena_sparql_api.arq.service.vfs.ServiceExecutorFactoryRegistratorVfs;
-import org.aksw.jena_sparql_api.core.QueryExecutionFactoryDataset;
-import org.aksw.jena_sparql_api.core.SparqlService;
-import org.aksw.jena_sparql_api.core.SparqlServiceFactory;
-import org.aksw.jena_sparql_api.core.SparqlServiceImpl;
-import org.aksw.jena_sparql_api.core.UpdateExecutionFactoryDataset;
 import org.aksw.jena_sparql_api.io.binseach.BinarySearcher;
-import org.aksw.jena_sparql_api.rx.RDFDataMgrEx;
-import org.aksw.jena_sparql_api.rx.entity.EntityInfo;
 import org.aksw.jena_sparql_api.server.utils.FactoryBeanSparqlServer;
-import org.aksw.jena_sparql_api.stmt.SparqlParserConfig;
-import org.aksw.jena_sparql_api.stmt.SparqlQueryParser;
-import org.aksw.jena_sparql_api.stmt.SparqlQueryParserImpl;
+import org.aksw.jenax.arq.engine.quad.QueryExecutionFactoryQuadForm;
+import org.aksw.jenax.arq.engine.quad.RDFConnectionFactoryQuadForm;
+import org.aksw.jenax.sparql.query.rx.RDFDataMgrEx;
+import org.aksw.jenax.stmt.core.SparqlParserConfig;
+import org.aksw.jenax.stmt.parser.query.SparqlQueryParser;
+import org.aksw.jenax.stmt.parser.query.SparqlQueryParserImpl;
 import org.apache.commons.lang3.time.StopWatch;
 import org.apache.commons.vfs2.FileObject;
 import org.apache.commons.vfs2.FileSystemManager;
@@ -68,7 +63,6 @@ import org.apache.jena.riot.RIOT;
 import org.apache.jena.riot.ResultSetMgr;
 import org.apache.jena.riot.resultset.ResultSetLang;
 import org.apache.jena.sparql.core.DatasetGraph;
-import org.apache.jena.sparql.engine.main.QC;
 import org.apache.jena.sparql.util.Context;
 import org.apache.jena.sys.JenaSystem;
 import org.apache.jena.system.Txn;
@@ -164,11 +158,16 @@ public class MainPlayground {
         }
 
 
-        QC.setFactory(ARQ.getContext(), execCxt -> {
-//                execCxt.getContext().set(ARQ.stageGenerator, StageBuilder.executeInline);
-            ServiceExecutorFactoryRegistratorVfs.register(execCxt.getContext());
-            return new OpExecutorWithCustomServiceExecutors(execCxt);
-        });
+//        QC.setFactory(ARQ.getContext(), execCxt -> {
+////                execCxt.getContext().set(ARQ.stageGenerator, StageBuilder.executeInline);
+//            // ServiceExecutorFactoryRegistratorVfs.register(execCxt.getContext());
+//        	ServiceExecutorRegistry reg = ServiceExecutorRegistry.get(execCxt);
+//        	ServiceExecutorRegistry reg2 = new ServiceExecutorRegistry();
+//        	reg.getFactories().forEach(reg2::add);
+//        	reg2.add(null)
+//
+//            // return new OpExecutorWithCustomServiceExecutors(execCxt);
+//        });
 
         String queryStr;
 
@@ -477,15 +476,15 @@ public class MainPlayground {
         ServiceExecutorFactoryRegistratorVfs.register(cxt);
 
 
-        SparqlService ss = new SparqlServiceImpl(
-                new QueryExecutionFactoryDataset(d, cxt, (qu, da, co) -> QueryEngineMainQuadForm.FACTORY),
-                new UpdateExecutionFactoryDataset(d, cxt, (da, co) -> UpdateEngineMainQuadForm.FACTORY));
+//        SparqlService ss = new SparqlServiceImpl(
+//                new QueryExecutionFactoryDataset(d, cxt, (qu, da, co) -> QueryEngineMainQuadForm.FACTORY),
+//                new UpdateExecutionFactoryDataset(d, cxt, (da, co) -> UpdateEngineMainQuadForm.FACTORY));
 
-        SparqlServiceFactory ssf = (uri, dd, httpClient) -> ss;
+        // SparqlServiceFactory ssf = (uri, dd, httpClient) -> ss;
 
         Server server = FactoryBeanSparqlServer.newInstance()
                 .setPort(7531)
-                .setSparqlServiceFactory(ssf)
+                .setSparqlServiceFactory((HttpServletRequest httpServletRequest) -> RDFConnectionFactoryQuadForm.connect(d, cxt))
                 .create();
 
 //		FusekiServer server = FusekiServer.create()

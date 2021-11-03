@@ -27,7 +27,7 @@ import org.aksw.jena_sparql_api.dataset.file.DatasetGraphMapLink2;
 import org.aksw.jena_sparql_api.dataset.file.GraphMakerFromFileSystem;
 import org.aksw.jena_sparql_api.dataset.file.LockPolicy;
 import org.aksw.jena_sparql_api.dataset.file.TxnDataset2Graph2;
-import org.aksw.jena_sparql_api.utils.model.DatasetGraphDiff;
+import org.aksw.jenax.arq.dataset.diff.DatasetGraphDiff;
 import org.apache.jena.atlas.iterator.IteratorConcat;
 import org.apache.jena.ext.com.google.common.collect.Maps;
 import org.apache.jena.ext.com.google.common.collect.Streams;
@@ -54,10 +54,10 @@ import org.apache.jena.sparql.graph.GraphReadOnly;
 public class DatasetGraphFromFileSystem
     extends DatasetGraphCollection
 {
-	protected PrefixMap prefixes = PrefixMapFactory.create();
-	
+    protected PrefixMap prefixes = PrefixMapFactory.create();
+
     protected Path basePath;
-    
+
     /* Matcher for the data files from which to load the RDF data */
     protected PathMatcher pathMatcher;
     protected Predicate<? super Path> isPathException;
@@ -74,7 +74,7 @@ public class DatasetGraphFromFileSystem
     protected LockManager<Path> lockMgr;
 //	protected LockManager<Path> processLockManager;
 //	protected LockManager<Path> threadLockManager;
-    
+
 
     protected Set<Consumer<? super DatasetGraphDiff>> preCommitHooks = Collections.synchronizedSet(new HashSet<>());
 //    protected Set<Function<? super DatasetGraphWithSync, ? extends DatasetGraphIndexPlugin>>
@@ -419,9 +419,9 @@ public class DatasetGraphFromFileSystem
 
     }
 
-	@Override
-	public PrefixMap prefixes() {
-		return prefixes;
-	}
+    @Override
+    public PrefixMap prefixes() {
+        return prefixes;
+    }
 
 }

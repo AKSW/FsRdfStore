@@ -7,7 +7,7 @@ import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.util.function.Supplier;
 
-import org.aksw.jena_sparql_api.utils.model.DatasetGraphDiff;
+import org.aksw.jenax.arq.dataset.diff.DatasetGraphDiff;
 import org.apache.commons.io.input.CloseShieldInputStream;
 import org.apache.commons.io.output.CloseShieldOutputStream;
 import org.apache.jena.riot.Lang;

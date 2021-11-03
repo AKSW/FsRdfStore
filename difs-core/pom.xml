@@ -36,13 +36,13 @@
 		<!-- </dependency> -->
 
 		<!-- <dependency> -->
-		<!-- <groupId>org.aksw.jena-sparql-api</groupId> -->
-		<!-- <artifactId>jena-sparql-api-collections</artifactId> -->
+		<!-- <groupId>org.aksw.jenax</groupId> -->
+		<!-- <artifactId>jenax-collections</artifactId> -->
 		<!-- </dependency> -->
 
 		<!-- <dependency> -->
-		<!-- <groupId>org.aksw.jena-sparql-api</groupId> -->
-		<!-- <artifactId>jena-sparql-api-concepts</artifactId> -->
+		<!-- <groupId>org.aksw.jenax</groupId> -->
+		<!-- <artifactId>jenax-concepts</artifactId> -->
 		<!-- </dependency> -->
 
 		<dependency>
@@ -56,19 +56,23 @@
 		</dependency>
 
 		<dependency>
-			<groupId>org.aksw.jena-sparql-api</groupId>
-			<artifactId>jena-sparql-api-io-core</artifactId>
-		</dependency>
-
-
-		<dependency>
-			<groupId>org.aksw.jena-sparql-api</groupId>
-			<artifactId>jena-sparql-api-core</artifactId>
+			<groupId>org.aksw.jenax</groupId>
+			<artifactId>jenax-io-core</artifactId>
 		</dependency>
 
 		<dependency>
-			<groupId>org.aksw.jena-sparql-api</groupId>
-			<artifactId>jena-sparql-api-utils</artifactId>
+			<groupId>org.aksw.jenax</groupId>
+			<artifactId>jenax-arq-datasets-diff</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.aksw.jenax</groupId>
+			<artifactId>jenax-rx-dataaccess</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.aksw.jenax</groupId>
+			<artifactId>jenax-arq-utils</artifactId>
 		</dependency>
 
 		<!-- Unit Testing -->
@@ -79,14 +83,14 @@
 		</dependency>
 
 		<!-- <dependency> -->
-		<!-- <groupId>org.aksw.jena-sparql-api</groupId> -->
-		<!-- <artifactId>jena-sparql-api-resources-test-config</artifactId> -->
+		<!-- <groupId>org.aksw.jenax</groupId> -->
+		<!-- <artifactId>jenax-resources-test-config</artifactId> -->
 		<!-- <scope>test</scope> -->
 		<!-- </dependency> -->
 
 		<!-- <dependency> -->
-		<!-- <groupId>org.aksw.jena-sparql-api</groupId> -->
-		<!-- <artifactId>jena-sparql-api-resources</artifactId> -->
+		<!-- <groupId>org.aksw.jenax</groupId> -->
+		<!-- <artifactId>jenax-resources</artifactId> -->
 		<!-- <scope>test</scope> -->
 		<!-- </dependency> -->
 

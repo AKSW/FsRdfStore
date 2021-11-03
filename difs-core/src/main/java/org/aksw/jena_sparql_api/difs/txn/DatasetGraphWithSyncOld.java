@@ -24,7 +24,7 @@ import org.aksw.difs.index.api.DatasetGraphIndexPlugin;
 import org.aksw.jena_sparql_api.dataset.file.FileSyncBase;
 import org.aksw.jena_sparql_api.dataset.file.FileSyncGraph;
 import org.aksw.jena_sparql_api.dataset.file.LockPolicy;
-import org.aksw.jena_sparql_api.utils.model.DatasetGraphDiff;
+import org.aksw.jenax.arq.dataset.diff.DatasetGraphDiff;
 import org.apache.jena.atlas.lib.InternalErrorException;
 import org.apache.jena.graph.Graph;
 import org.apache.jena.graph.Node;

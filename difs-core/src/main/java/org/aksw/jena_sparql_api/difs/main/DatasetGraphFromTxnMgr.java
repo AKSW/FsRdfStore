@@ -29,8 +29,8 @@ import org.aksw.difs.index.api.DatasetGraphIndexPlugin;
 import org.aksw.jena_sparql_api.difs.txn.DatasetGraphFromFileSystem;
 import org.aksw.jena_sparql_api.difs.txn.SyncedDataset;
 import org.aksw.jena_sparql_api.difs.txn.TxnUtils;
-import org.aksw.jena_sparql_api.utils.IteratorClosable;
-import org.aksw.jena_sparql_api.utils.model.DatasetGraphDiff;
+import org.aksw.jenax.arq.dataset.diff.DatasetGraphDiff;
+import org.apache.jena.atlas.iterator.Iter;
 import org.apache.jena.graph.Graph;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.Triple;
@@ -47,6 +47,7 @@ import org.apache.jena.sparql.core.Quad;
 import org.apache.jena.sparql.core.Transactional;
 import org.apache.jena.util.iterator.ClosableIterator;
 import org.apache.jena.util.iterator.ExtendedIterator;
+import org.apache.jena.util.iterator.WrappedIterator;
 import org.jgrapht.GraphPath;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -867,7 +868,7 @@ public class DatasetGraphFromTxnMgr
     }
 
     public static <T> ClosableIterator<T> streamToClosableIterator(Stream<T> stream) {
-        return new IteratorClosable<T>(stream.iterator(), () -> stream.close());
+        return WrappedIterator.create(Iter.onClose(stream.iterator(), () -> stream.close()));
     }
 
     @Override

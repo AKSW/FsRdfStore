@@ -16,6 +16,11 @@
 	<dependencies>
 
 		<dependency>
+			<groupId>org.aksw.jenax</groupId>
+			<artifactId>jenax-arq-plugins-service-vfs</artifactId>
+		</dependency>
+
+		<dependency>
 			<groupId>org.aksw.difs</groupId>
 			<artifactId>difs-system</artifactId>
 		</dependency>
