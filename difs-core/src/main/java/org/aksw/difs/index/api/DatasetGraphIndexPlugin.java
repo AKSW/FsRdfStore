@@ -2,6 +2,7 @@ package org.aksw.difs.index.api;
 
 import java.util.stream.Stream;
 
+import org.aksw.commons.txn.api.Txn;
 import org.apache.jena.graph.Node;
 import org.apache.jena.sparql.core.DatasetGraph;
 
@@ -27,9 +28,9 @@ public interface DatasetGraphIndexPlugin {
 
     /** Return a stream of resource keys for which there may be graphs
      *  potentially containing matching triples */
-    public Stream<String[]> listGraphNodes(DatasetGraph dg, Node s, Node p, Node o);
+    public Stream<String[]> listGraphNodes(Txn txn, DatasetGraph dg, Node s, Node p, Node o);
 
-    public void add(DatasetGraph dg, Node g, Node s, Node p, Node o);
-    public void delete(DatasetGraph dg, Node g, Node s, Node p, Node o);
+    public void add(Txn txn, DatasetGraph dg, Node g, Node s, Node p, Node o);
+    public void delete(Txn txn, DatasetGraph dg, Node g, Node s, Node p, Node o);
 }
 

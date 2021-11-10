@@ -166,6 +166,12 @@
 				<groupId>org.apache.commons</groupId>
 				<artifactId>commons-vfs2</artifactId>
 				<version>2.9.0-805-SNAPSHOT</version>
+                                <exclusions>
+                                        <exclusion>
+                                                <groupId>com.fasterxml.jackson.core</groupId>
+                                                <artifactId>jackson-annotations</artifactId>
+                                        </exclusion>
+                                </exclusions>
 			</dependency>
 
 			<dependency>

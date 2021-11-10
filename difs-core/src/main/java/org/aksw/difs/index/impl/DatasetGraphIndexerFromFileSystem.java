@@ -20,7 +20,9 @@ import org.aksw.commons.io.util.PathUtils;
 import org.aksw.commons.io.util.SymLinkUtils;
 import org.aksw.commons.io.util.UriToPathUtils;
 import org.aksw.commons.io.util.symlink.SymbolicLinkStrategy;
-import org.aksw.commons.txn.impl.FileUtilsX;
+import org.aksw.commons.txn.api.Txn;
+import org.aksw.commons.txn.api.TxnResourceApi;
+import org.aksw.commons.txn.impl.FileUtilsExtra;
 import org.aksw.commons.txn.impl.ResourceRepository;
 import org.aksw.commons.util.array.Array;
 import org.aksw.commons.util.strings.StringUtils;
@@ -35,7 +37,6 @@ import org.apache.jena.sparql.util.Symbol;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
-import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 
 
@@ -192,7 +193,7 @@ public class DatasetGraphIndexerFromFileSystem
 //    }
 
     @Override
-    public void add(DatasetGraph dg, Node g, Node s, Node p, Node o) {
+    public void add(Txn txn, DatasetGraph dg, Node g, Node s, Node p, Node o) {
 //        Node g = quad.getGraph();
 //        Node s = quad.getSubject();
 //        Node p = quad.getPredicate();
@@ -239,9 +240,15 @@ public class DatasetGraphIndexerFromFileSystem
             tmpSuffix = tmpSuffix.isEmpty() ? "" : "." + tmpSuffix;
             String suffix = tmpSuffix + ".link";
 
+
             try {
-                FileUtilsX.ensureFolderExists(idxFullPath, x -> {
-                    SymLinkUtils.allocateSymbolicLink(symlinkStrategy, symLinkTgtAbsFile, idxFullPath, prefix, suffix);
+                FileUtilsExtra.ensureFolderExists(idxFullPath, x -> {
+
+                    // TODO We probably want a mgmtLock on the folder to prevent concurrent modificatino
+                    // to the set of links
+
+                    SymLinkUtils.allocateSymbolicLink(symlinkStrategy, symLinkTgtAbsFile, idxFullPath, prefix, suffix,
+                            (linkFile, tgt) -> allocateSymLinkInTxn(txn, symlinkStrategy, linkFile, symLinkTgtAbsFile));
                 });
 
                 // TODO Possibly extend allocateSymbolicLink with a flag to update the symlink rather
@@ -251,6 +258,24 @@ public class DatasetGraphIndexerFromFileSystem
                  throw new RuntimeException(e);
             }
         }
+    }
+
+
+    public static Path allocateSymLinkInTxn(Txn txn, SymbolicLinkStrategy symlinkStrategy, Path linkFile, Path tgt)
+        throws IOException
+    {
+        Path baseFolder = txn.getTxnMgr().getResRepo().getRootPath();
+        String[] indexLinkId = PathUtils.getPathSegments(linkFile.relativize(baseFolder));
+        TxnResourceApi txnResApi = txn.getResourceApi(indexLinkId);
+
+        txnResApi.declareAccess();
+        txnResApi.lock(true);
+
+        Path r = txnResApi.getFileSync().getNewContentTmpFile();
+        // Files.deleteIfExists(r);
+        symlinkStrategy.createSymbolicLink(r, tgt);
+
+        return r;
     }
 
 
@@ -275,7 +300,7 @@ public class DatasetGraphIndexerFromFileSystem
      *
      */
     @Override
-    public void delete(DatasetGraph dg, Node g, Node s, Node p, Node o) {
+    public void delete(Txn txn, DatasetGraph dg, Node g, Node s, Node p, Node o) {
 //        Node g = quad.getGraph();
 //        Node s = quad.getSubject();
 //        Node p = quad.getPredicate();
@@ -372,7 +397,14 @@ public class DatasetGraphIndexerFromFileSystem
                             ;
 
                         if (deletePath != null) {
-                            FileUtilsX.deleteFileIfExistsAndThenDeleteEmptyFolders(deletePath, basePath);
+                            Path baseFolder = txn.getTxnMgr().getResRepo().getRootPath();
+                            String[] indexLinkId = PathUtils.getPathSegments(deletePath.relativize(baseFolder));
+
+                            TxnResourceApi txnResApi = txn.getResourceApi(indexLinkId);
+                            txnResApi.declareAccess();
+                            txnResApi.getFileSync().markForDeletion();
+
+                            // FileUtilsExtra.deleteFileIfExistsAndThenDeleteEmptyFolders(deletePath, basePath);
                         }
                         // TODO Delete empty directory
                         // FileUtils.deleteDirectoryIfEmpty(basePath, symLinkSrcFile.getParent());
@@ -443,7 +475,7 @@ public class DatasetGraphIndexerFromFileSystem
         return result;
     }
 
-    public Stream<String[]> listGraphNodes(DatasetGraph dg, Node s, Node p, Node o) {
+    public Stream<String[]> listGraphNodes(Txn txn, DatasetGraph dg, Node s, Node p, Node o) {
 //    	SymlinkStrategy symlinkStrategy = extractSymlinkStrategy(dg);
 
         if (evaluateFind(s, p, o) == null) {

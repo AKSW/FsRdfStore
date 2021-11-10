@@ -2,14 +2,17 @@ package org.aksw.jena_sparql_api.difs.main;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -21,12 +24,12 @@ import org.aksw.commons.rx.op.RxOps;
 import org.aksw.commons.txn.api.Txn;
 import org.aksw.commons.txn.api.TxnMgr;
 import org.aksw.commons.txn.api.TxnResourceApi;
+import org.aksw.commons.txn.impl.ContentSync;
 import org.aksw.commons.txn.impl.FileSyncImpl;
-import org.aksw.commons.txn.impl.FileUtilsX;
+import org.aksw.commons.txn.impl.FileUtilsExtra;
 import org.aksw.commons.txn.impl.ResourceRepository;
 import org.aksw.commons.util.array.Array;
 import org.aksw.difs.index.api.DatasetGraphIndexPlugin;
-import org.aksw.jena_sparql_api.difs.txn.DatasetGraphFromFileSystem;
 import org.aksw.jena_sparql_api.difs.txn.SyncedDataset;
 import org.aksw.jena_sparql_api.difs.txn.TxnUtils;
 import org.aksw.jenax.arq.dataset.diff.DatasetGraphDiff;
@@ -237,7 +240,7 @@ public class DatasetGraphFromTxnMgr
                         }
 
                         // Precommit: Copy any new data files to their final location (but keep backups)
-                        FileSyncImpl fs = api.getFileSync();
+                        ContentSync fs = api.getFileSync();
                         fs.preCommit();
 
                         // Update the in memory cache
@@ -324,7 +327,7 @@ public class DatasetGraphFromTxnMgr
 
                         // Clean up empty paths
                         Path targetFile = api.getFileSync().getTargetFile();
-                        FileUtilsX.deleteEmptyFolders(targetFile.getParent(), resRepoRootPath);
+                        FileUtilsExtra.deleteEmptyFolders(targetFile.getParent(), resRepoRootPath);
 
                     } else {
                         api.rollback();
@@ -527,9 +530,11 @@ public class DatasetGraphFromTxnMgr
         mutateGraph(g, dg -> {
             boolean r = !dg.contains(g, s, p, o);
             if (r) {
+                Txn txn = local();
+
                 dg.add(g, s, p, o);
                 for (DatasetGraphIndexPlugin indexer : indexers) {
-                    indexer.add(dg, g, s, p, o);
+                    indexer.add(txn, dg, g, s, p, o);
                 }
 
                 // Ensure the graph is no longer declared as removed
@@ -572,8 +577,10 @@ public class DatasetGraphFromTxnMgr
 
             boolean r = graph.contains(s, p, o);
             if (r) {
+                Txn txn = local();
+
                 for (DatasetGraphIndexPlugin indexer : indexers) {
-                    indexer.delete(dg, g, s, p, o);
+                    indexer.delete(txn, dg, g, s, p, o);
                 }
                 // dg.delete(g, s, p, o);
                 graph.delete(s, p, o);
@@ -805,14 +812,14 @@ public class DatasetGraphFromTxnMgr
     }
 
 
-    public Stream<TxnResourceApi> findResources(Txn local, Node s, Node p, Node o) {
-        DatasetGraphIndexPlugin bestPlugin = DatasetGraphFromFileSystem.findBestMatch(
+    public Stream<TxnResourceApi> findResources(Txn txn, Node s, Node p, Node o) {
+        DatasetGraphIndexPlugin bestPlugin = findBestMatch(
                 indexers.iterator(),
                 plugin -> plugin.evaluateFind(s, p, o), (lhs, rhs) -> lhs != null && lhs < rhs);
 
         Stream<TxnResourceApi> visibleMatchingResources = bestPlugin != null
-                ? bestPlugin.listGraphNodes(this, s, p, o)
-                    .map(relPath -> local.getResourceApi(relPath))
+                ? bestPlugin.listGraphNodes(txn, this, s, p, o)
+                    .map(relPath -> txn.getResourceApi(relPath))
                     .filter(TxnResourceApi::isVisible)
                 : local().listVisibleFiles();
 
@@ -931,5 +938,38 @@ public class DatasetGraphFromTxnMgr
             txn.addRollback();
         }
         DatasetGraphFromTxnMgr.applyJournal(txn, getSyncCache());
+    }
+
+    public static <T, S> Entry<T, S> findBestMatchWithScore(
+            Iterator<T> it,
+            Function<? super T, ? extends S> itemToScore, BiPredicate<? super S, ? super S> isLhsBetternThanRhs) {
+
+        T bestItem = null;
+        S bestScore = null;
+
+        while (it.hasNext()) {
+            T item = it.next();
+            S score = itemToScore.apply(item);
+            if (score != null) {
+                if (bestScore == null || isLhsBetternThanRhs.test(score, bestScore)) {
+                    bestItem = item;
+                    bestScore = score;
+                }
+            }
+        }
+
+        Entry<T, S> result = bestItem == null
+                ? null
+                : new SimpleEntry<>(bestItem, bestScore);
+        return result;
+    }
+
+    public static <T, S> T findBestMatch(
+            Iterator<T> it,
+            Function<? super T, ? extends S> itemToScore, BiPredicate<? super S, ? super S> isLhsBetternThanRhs) {
+
+        Entry<T, S> tmp = findBestMatchWithScore(it, itemToScore, isLhsBetternThanRhs);
+        T result = tmp == null ? null : tmp.getKey();
+        return result;
     }
 }
