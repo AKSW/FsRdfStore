@@ -318,7 +318,7 @@ public class DifsFactory {
         logger.info("Creating txn manager with id: " + txnMgrId);
 
 
-        TxnMgr result = new TxnMgrImpl(txnMgrId, heartbeatInterval, lockMgr, txnStore, resStore, resLocks, effSymlinkStrategy);
+        TxnMgr result = new TxnMgrImpl(txnMgrId, repoRootPath, heartbeatInterval, lockMgr, txnStore, resStore, resLocks, effSymlinkStrategy);
 
         return result;
     }

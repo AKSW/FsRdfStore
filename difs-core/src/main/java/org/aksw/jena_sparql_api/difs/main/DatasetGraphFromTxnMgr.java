@@ -33,6 +33,7 @@ import org.aksw.difs.index.api.DatasetGraphIndexPlugin;
 import org.aksw.jena_sparql_api.difs.txn.SyncedDataset;
 import org.aksw.jena_sparql_api.difs.txn.TxnUtils;
 import org.aksw.jenax.arq.dataset.diff.DatasetGraphDiff;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.jena.atlas.iterator.Iter;
 import org.apache.jena.graph.Graph;
 import org.apache.jena.graph.Node;
@@ -115,12 +116,14 @@ public class DatasetGraphFromTxnMgr
                     logger.info("Loading data at " + keyArr);
 
                     String[] key = keyArr.getArray();
-                    ResourceRepository<String> resRepo = txnMgr.getResRepo();
-                    Path rootPath = resRepo.getRootPath();
+                    // ResourceRepository<String> resRepo = txnMgr.getResRepo();
+                    // Path rootPath = resRepo.getRootPath();
+                    Path rootPath = txnMgr.getRootPath();
 
                     // Path relPath = r// resRepo.getRelPath(key);
                     Path absPath = PathUtils.resolve(rootPath, key);
-                    FileSyncImpl fs = FileSyncImpl.create(absPath.resolve("data.trig"), !allowEmptyGraphs);
+                    // .resolve("data.trig")
+                    FileSyncImpl fs = FileSyncImpl.create(absPath, !allowEmptyGraphs);
 
                     return new SyncedDataset(fs);
                 }
@@ -292,9 +295,8 @@ public class DatasetGraphFromTxnMgr
 
     public static void applyJournal(Txn txn, LoadingCache<Array<String>, SyncedDataset> syncCache) {
         TxnMgr txnMgr = txn.getTxnMgr();
-        ResourceRepository<String> resRepo = txnMgr.getResRepo();
-        Path resRepoRootPath = resRepo.getRootPath();
-
+        // ResourceRepository<String> resRepo = txnMgr.getResRepo();
+        Path resRepoRootPath = txnMgr.getRootPath();
 
         boolean isCommit;
         try {
@@ -322,16 +324,16 @@ public class DatasetGraphFromTxnMgr
 
                     String[] resourceKey = api.getResourceKey();
 
+                    Path targetFile = api.getFileSync().getTargetFile();
                     if (isCommit) {
                         api.finalizeCommit();
-
-                        // Clean up empty paths
-                        Path targetFile = api.getFileSync().getTargetFile();
-                        FileUtilsExtra.deleteEmptyFolders(targetFile.getParent(), resRepoRootPath);
-
                     } else {
                         api.rollback();
                     }
+
+                    // Clean up empty paths
+                    FileUtilsExtra.deleteEmptyFolders(targetFile.getParent(), resRepoRootPath);
+
                     SyncedDataset synced = syncCache.getIfPresent(Array.wrap(resourceKey));
                     if (synced != null) {
                         if (synced.isDirty()) {
@@ -359,6 +361,7 @@ public class DatasetGraphFromTxnMgr
     public void abort() {
         try {
             local().addRollback();
+            applyJournal(local(), syncCache);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -611,6 +614,15 @@ public class DatasetGraphFromTxnMgr
         return result;
     }
 
+    protected String[] getResourceKey(String iri) {
+        String[] key = PathUtils.getPathSegments(
+                txnMgr.getRootPath().relativize(txnMgr.getResRepo().getRootPath()));
+
+        key = ArrayUtils.addAll(key, txnMgr.getResRepo().getPathSegments(iri));
+        key = ArrayUtils.add(key, "data.trig");
+        return key;
+    }
+
     /**
      *
      * @param graphNode
@@ -619,7 +631,9 @@ public class DatasetGraphFromTxnMgr
     protected void mutateGraph(Node graphNode, Predicate<DatasetGraphDiff> mutator) {
         mutate(this, () -> {
             String iri = graphNode.getURI();
-            String[] key = txnMgr.getResRepo().getPathSegments(iri);
+            // String[] key = txnMgr.getResRepo().getPathSegments(iri);
+            String[] key = getResourceKey(iri);
+
             // Path relPath = FileUtilsX.resolve(txnMgr.getResRepo().getRootPath(), key);
 
             // Get the resource and lock it for writing
@@ -793,8 +807,9 @@ public class DatasetGraphFromTxnMgr
 
     protected Stream<Quad> findInSpecificNamedGraph(Txn local, Node g, Node s, Node p , Node o) {
         logger.debug("Find in specific named graph: " + new Quad(g, s, p, o));
-        String res = g.getURI();
-        String[] relPath = txnMgr.getResRepo().getPathSegments(res);
+        String graphName = g.getURI();
+        // String[] relPath = txnMgr.getResRepo().getPathSegments(res);
+        String[] relPath = getResourceKey(graphName);
 
         return Stream.of(local.getResourceApi(relPath))
                 .filter(TxnResourceApi::isVisible)

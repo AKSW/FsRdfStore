@@ -7,9 +7,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -22,11 +19,13 @@ import org.aksw.commons.io.util.UriToPathUtils;
 import org.aksw.commons.io.util.symlink.SymbolicLinkStrategy;
 import org.aksw.commons.txn.api.Txn;
 import org.aksw.commons.txn.api.TxnResourceApi;
+import org.aksw.commons.txn.impl.FileSyncImpl;
 import org.aksw.commons.txn.impl.FileUtilsExtra;
 import org.aksw.commons.txn.impl.ResourceRepository;
 import org.aksw.commons.util.array.Array;
 import org.aksw.commons.util.strings.StringUtils;
 import org.aksw.difs.index.api.DatasetGraphIndexPlugin;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.jena.ext.com.google.common.io.MoreFiles;
 import org.apache.jena.graph.Node;
 import org.apache.jena.sparql.core.DatasetGraph;
@@ -35,9 +34,12 @@ import org.apache.jena.sparql.util.Context;
 import org.apache.jena.sparql.util.NodeUtils;
 import org.apache.jena.sparql.util.Symbol;
 
+import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Streams;
+import com.google.common.collect.Table;
+import com.google.common.collect.Table.Cell;
 
 
 /**
@@ -244,10 +246,10 @@ public class DatasetGraphIndexerFromFileSystem
             try {
                 FileUtilsExtra.ensureFolderExists(idxFullPath, x -> {
 
-                    // TODO We probably want a mgmtLock on the folder to prevent concurrent modificatino
+                    // TODO We probably want a mgmtLock on the folder to prevent concurrent modification
                     // to the set of links
 
-                    SymLinkUtils.allocateSymbolicLink(symlinkStrategy, symLinkTgtAbsFile, idxFullPath, prefix, suffix,
+                    SymLinkUtils.allocateSymbolicLink(symlinkStrategy, symLinkTgtAbsFile, idxFullPath, FileSyncImpl::getBaseName, prefix, suffix,
                             (linkFile, tgt) -> allocateSymLinkInTxn(txn, symlinkStrategy, linkFile, symLinkTgtAbsFile));
                 });
 
@@ -264,16 +266,20 @@ public class DatasetGraphIndexerFromFileSystem
     public static Path allocateSymLinkInTxn(Txn txn, SymbolicLinkStrategy symlinkStrategy, Path linkFile, Path tgt)
         throws IOException
     {
-        Path baseFolder = txn.getTxnMgr().getResRepo().getRootPath();
-        String[] indexLinkId = PathUtils.getPathSegments(linkFile.relativize(baseFolder));
+        Path baseFolder = txn.getTxnMgr().getRootPath();
+        String[] indexLinkId = PathUtils.getPathSegments(baseFolder.relativize(linkFile));
         TxnResourceApi txnResApi = txn.getResourceApi(indexLinkId);
 
         txnResApi.declareAccess();
         txnResApi.lock(true);
 
         Path r = txnResApi.getFileSync().getNewContentTmpFile();
+        Files.createDirectories(r.getParent());
+
+        Path relTgt = r.getParent().relativize(tgt);
+
         // Files.deleteIfExists(r);
-        symlinkStrategy.createSymbolicLink(r, tgt);
+        symlinkStrategy.createSymbolicLink(r, relTgt);
 
         return r;
     }
@@ -331,11 +337,11 @@ public class DatasetGraphIndexerFromFileSystem
                 cxt.put(indexerKey, invertedIndex);
             }
 
-            Set<Quad> quadsMappingToSameIndexKey = (Set<Quad>)invertedIndex.get(Array.wrap(idxRelPath));
-            quadsMappingToSameIndexKey.remove(deleteQuad);
+            Set<Quad> quadsThatMapToTheSameIndexKey = (Set<Quad>)invertedIndex.get(Array.wrap(idxRelPath));
+            quadsThatMapToTheSameIndexKey.remove(deleteQuad);
 
 
-            if (quadsMappingToSameIndexKey.isEmpty()) {
+            if (quadsThatMapToTheSameIndexKey.isEmpty()) {
                 Path idxFullPath = PathUtils.resolve(basePath, idxRelPath);
 
     // Should we sanity check that the symlink refers to the exact same target
@@ -349,6 +355,11 @@ public class DatasetGraphIndexerFromFileSystem
 
                 String coreName = pathToFilename(tgtRelPath);
 
+
+                String[] tmp = PathUtils.getPathSegments(txn.getTxnMgr().getRootPath().relativize(tgtBasePath).normalize());
+                tmp = ArrayUtils.addAll(tmp, tgtRelPath);
+                tmp = ArrayUtils.add(tmp, "data.trig");
+                String[] allSegments = tmp;
 
                 // Compute prefix/suffix
                 Path file = Paths.get(tgtFilename);
@@ -374,34 +385,41 @@ public class DatasetGraphIndexerFromFileSystem
 
 
                 try {
-                    Map<Path, Path> links;
+                    Table<String, Path, Path> links;
                     try {
-                        links = SymLinkUtils.readSymbolicLinks(symlinkStrategy, idxFullPath, prefix, suffix);
+                        // TODO There might be a .sync.tmp file
+                        links = SymLinkUtils.readSymbolicLinks(symlinkStrategy, idxFullPath, FileSyncImpl::getBaseName, prefix, suffix);
                     } catch (NoSuchFileException e) {
-                        links = Collections.emptyMap();
+                        links = HashBasedTable.create();
                     }
                     // boolean isSymlink = Files.isSymbolicLink(symLinkSrcFile);
                     // if (isSymlink) {
                     {
                         // TODO Find the entry that links to the target
-                        Path deletePath = links.entrySet().stream()
+                        Cell<String, Path, Path> deletePathCell = links.cellSet().stream()
                             .filter(srcToTgt -> {
-                                Path absTgt = SymLinkUtils.resolveSymLinkAbsolute(srcToTgt.getKey(), srcToTgt.getValue());
+                                Path absTgt = SymLinkUtils.resolveSymLinkAbsolute(srcToTgt.getColumnKey(), srcToTgt.getValue());
 
-                                String[] key = linkTargetToKey(absTgt);
-                                boolean r = Arrays.equals(key, tgtRelPath);
+                                String[] key = linkTargetToKey(txn, absTgt);
+                                boolean r = Arrays.equals(key, allSegments);
                                 return r;
                             })
-                            .map(Entry::getKey)
+                            // .map(Cell::getRow)
                             .findFirst().orElse(null)
                             ;
 
-                        if (deletePath != null) {
-                            Path baseFolder = txn.getTxnMgr().getResRepo().getRootPath();
-                            String[] indexLinkId = PathUtils.getPathSegments(deletePath.relativize(baseFolder));
+                        if (deletePathCell != null) {
+                            // Construct the path to the target resource (rather than any of the involved temporary files)
+                            Path deletePath = deletePathCell.getColumnKey().resolveSibling(deletePathCell.getRowKey());
+
+                            Path baseFolder = txn.getTxnMgr().getRootPath();
+
+                            // TODO Get the base name
+                            String[] indexLinkId = PathUtils.getPathSegments(baseFolder.relativize(deletePath).normalize());
 
                             TxnResourceApi txnResApi = txn.getResourceApi(indexLinkId);
                             txnResApi.declareAccess();
+                            txnResApi.lock(true);
                             txnResApi.getFileSync().markForDeletion();
 
                             // FileUtilsExtra.deleteFileIfExistsAndThenDeleteEmptyFolders(deletePath, basePath);
@@ -466,12 +484,15 @@ public class DatasetGraphIndexerFromFileSystem
 //    }
 
 
-    public String[] linkTargetToKey(Path linkTarget) {
-        Path tgtRelFile = syncedGraph.getRootPath().relativize(linkTarget);
+    public String[] linkTargetToKey(Txn txn, Path linkTarget) {
+        // Path tgtRelFile = syncedGraph.getRootPath().relativize(linkTarget);
+        Path tgtRelFile = txn.getTxnMgr().getRootPath().relativize(linkTarget);
+        // Path tgtRelFile = linkTarget.relativize(txn.getTxnMgr().getRootPath());
 
-        // Get the path (without the filename)
-        Path tgtRelPath = tgtRelFile.getParent();
-        String[] result = PathUtils.getPathSegments(tgtRelPath);
+        // deprecated: Get the path (without the filename)
+        // Path tgtRelPath = tgtRelFile.getParent();
+        // The file name is part of the resource key
+        String[] result = PathUtils.getPathSegments(tgtRelFile);
         return result;
     }
 
@@ -509,19 +530,20 @@ public class DatasetGraphIndexerFromFileSystem
 
 
         Path symLinkSrcPath = PathUtils.resolve(basePath, relPath);
-        Stream<Entry<Path, Path>> symLinkTgtPaths;
+        Stream<Cell<String, Path, Path>> symLinkTgtPaths;
         try {
             try {
                 symLinkTgtPaths = Files.exists(symLinkSrcPath)
-                        ? SymLinkUtils.streamSymbolicLinks(symlinkStrategy, symLinkSrcPath, prefix, suffix)
+                        ? SymLinkUtils.streamSymbolicLinks(symlinkStrategy, FileSyncImpl::getBaseName, prefix, suffix)
+                                .apply(Files.list(symLinkSrcPath))
                         : Stream.empty();
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
 
             Stream<String[]> result = symLinkTgtPaths.map(srcToTgt -> {
-                Path absTgt = SymLinkUtils.resolveSymLinkAbsolute(srcToTgt.getKey(), srcToTgt.getValue());
-                String[] r = linkTargetToKey(absTgt);
+                Path absTgt = SymLinkUtils.resolveSymLinkAbsolute(srcToTgt.getColumnKey(), srcToTgt.getValue());
+                String[] r = linkTargetToKey(txn, absTgt);
                 return r;
 //                Path tgtRelFile = syncedGraph.getRootPath().relativize(absTgt);
 //
