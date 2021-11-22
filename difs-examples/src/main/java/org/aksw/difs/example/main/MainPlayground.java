@@ -76,7 +76,7 @@ import com.sshtools.vfs2nio.Vfs2NioFileSystemProvider;
 
 public class MainPlayground {
 
-    public static void main(String[] args) throws Exception {
+    public static void mainX(String[] args) throws Exception {
         Stopwatch sw = Stopwatch.createStarted();
 
         // Writing 1mio files with a little content takes ~45 seconds (dell xps 13 2017)
@@ -324,7 +324,7 @@ public class MainPlayground {
     }
 
 
-    public static void mainX(String[] args) throws Exception {
+    public static void main(String[] args) throws Exception {
         JenaSystem.init();
 
         String[] vfsConfWebDav = new String[]{"webdav://localhost", "webdav/gitalog/store.conf.ttl"};

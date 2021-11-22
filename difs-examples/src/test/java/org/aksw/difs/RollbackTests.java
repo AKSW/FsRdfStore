@@ -51,7 +51,7 @@ public class RollbackTests {
 
         Quad quad = new Quad(RDF.Nodes.type, RDF.Nodes.type, RDF.Nodes.type, RDF.Nodes.type);
         dg.begin();
-//        dg.add(quad);
+        dg.add(quad);
         dg.delete(quad);
 
         dg.commit();
