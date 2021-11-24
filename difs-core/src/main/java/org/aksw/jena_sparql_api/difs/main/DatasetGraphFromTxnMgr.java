@@ -84,6 +84,8 @@ public class DatasetGraphFromTxnMgr
 
     protected PrefixMap prefixes = PrefixMapFactory.create();
 
+    protected List<String> storeBaseSegments;
+
 //    public static DatasetGraphFromTxnMgr createDefault(Path repoRoot) {
 //        PathMatcher pathMatcher = repoRoot.getFileSystem().getPathMatcher("glob:**/*.trig");
 //
@@ -163,6 +165,15 @@ public class DatasetGraphFromTxnMgr
         this.allowEmptyGraphs = allowEmptyGraphs;
         this.isParallel = isParallel;
         this.syncCache = createCache(txnMgr, allowEmptyGraphs, (CacheBuilder<Array<String>, SyncedDataset>)cacheBuilder);
+
+        this.storeBaseSegments = Arrays.asList(getStoreBaseSegments(txnMgr));
+    }
+
+
+    public static String[] getStoreBaseSegments(TxnMgr txnMgr) {
+        String[] result = PathUtils.getPathSegments(
+                txnMgr.getRootPath().relativize(txnMgr.getResRepo().getRootPath()));
+        return result;
     }
 
 
@@ -290,6 +301,8 @@ public class DatasetGraphFromTxnMgr
             }
 
             throw new RuntimeException(e);
+        } finally {
+            end();
         }
     }
 
@@ -364,6 +377,8 @@ public class DatasetGraphFromTxnMgr
             applyJournal(local(), syncCache);
         } catch (Exception e) {
             throw new RuntimeException(e);
+        } finally {
+            end();
         }
     }
 
@@ -461,7 +476,9 @@ public class DatasetGraphFromTxnMgr
     public Iterator<Node> listGraphNodes() {
         Iterator<Node> result = access(this, () -> {
             Txn local = local();
-            try (Stream<TxnResourceApi> stream = local().listVisibleFiles()) {
+
+
+            try (Stream<TxnResourceApi> stream = local().listVisibleFiles(storeBaseSegments)) {
 
 //                dgStream = Flowable.fromStream(baseStream)
 //                        .compose(RxOps.createParallelMapperOrdered(resourceTxnApi -> {
@@ -615,13 +632,30 @@ public class DatasetGraphFromTxnMgr
     }
 
     protected String[] getResourceKey(String iri) {
-        String[] key = PathUtils.getPathSegments(
-                txnMgr.getRootPath().relativize(txnMgr.getResRepo().getRootPath()));
+        Path path = PathUtils
+                .resolve(txnMgr.getResRepo().getRootPath(), txnMgr.getResRepo().getPathSegments(iri))
+                .resolve("data.trig");
 
-        key = ArrayUtils.addAll(key, txnMgr.getResRepo().getPathSegments(iri));
-        key = ArrayUtils.add(key, "data.trig");
+        String[] result = pathToKey(path);
+        return result;
+    }
+
+//    String[] key = PathUtils.getPathSegments(
+//            txnMgr.getRootPath().relativize(txnMgr.getResRepo().getRootPath()));
+//
+//    key = ArrayUtils.addAll(key, txnMgr.getResRepo().getPathSegments(iri));
+//    key = ArrayUtils.add(key, "data.trig");
+//    return key;
+    // key = ArrayUtils.addAll(key, txnMgr.getResRepo().getPathSegments(iri));
+//    key = ArrayUtils.add(key, "data.trig");
+//    return key;
+
+    protected String[] pathToKey(Path path) {
+        String[] key = PathUtils.getPathSegments(
+                txnMgr.getRootPath().relativize(path));
         return key;
     }
+
 
     /**
      *
@@ -836,7 +870,7 @@ public class DatasetGraphFromTxnMgr
                 ? bestPlugin.listGraphNodes(txn, this, s, p, o)
                     .map(relPath -> txn.getResourceApi(relPath))
                     .filter(TxnResourceApi::isVisible)
-                : local().listVisibleFiles();
+                : local().listVisibleFiles(storeBaseSegments);
 
         return visibleMatchingResources;
     }

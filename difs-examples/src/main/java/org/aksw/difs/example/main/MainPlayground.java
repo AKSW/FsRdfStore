@@ -495,7 +495,7 @@ public class MainPlayground {
         System.out.println("Starting server");
         server.start();
         server.join();
-        System.out.println();
+//        System.out.println();
 
 //		RDFDataMgr.write(System.out, d, RDFFormat.TRIG_PRETTY);
 
