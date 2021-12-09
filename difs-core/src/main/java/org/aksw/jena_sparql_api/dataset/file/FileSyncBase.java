@@ -13,7 +13,6 @@ import org.aksw.commons.lock.FileLockUtils;
 import org.aksw.commons.util.ref.Ref;
 import org.aksw.commons.util.ref.RefImpl;
 import org.aksw.jena_sparql_api.concurrent.util.Synchronized;
-import org.apache.jena.dboe.base.file.ProcessFileLock;
 import org.apache.jena.query.ReadWrite;
 import org.apache.jena.query.TxnType;
 import org.apache.jena.shared.Lock;
@@ -59,10 +58,10 @@ public abstract class FileSyncBase
             }
 
             Ref<FileChannel> r = FileLockUtils.open(path, false,
-            		StandardOpenOption.CREATE,
-            		StandardOpenOption.READ,
-            		StandardOpenOption.WRITE,
-            		StandardOpenOption.DSYNC);
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.READ,
+                    StandardOpenOption.WRITE,
+                    StandardOpenOption.DSYNC);
             return r;
         } catch (IOException | InterruptedException e) {
             throw new RuntimeException(e);
@@ -149,8 +148,8 @@ public abstract class FileSyncBase
     }
 
     protected Ref<FileChannel> acquireLocalFileChannelRef() throws Exception {
-   
-    	
+
+
         // If the file has just been opened, we need to load the data
         // once we obtained the file lock
         boolean needsDataLoading = false;
@@ -159,17 +158,18 @@ public abstract class FileSyncBase
         synchronized (this) {
             if (rootFileChannelRef == null) {
 
-            	// if .isAlive returns false, it means that the close action
+                // if .isAlive returns false, it means that the close action
                 // is running
                 //Reference<FileChannel> ref = FileLockUtils.open(path, readLockRequested, openOptions);
                 Ref<FileChannel> ref = rootFileChannelSupp.get();
 
                 FileChannel fileChannel = ref.get();
                 rootFileChannelRef = RefImpl.create(fileChannel,
+                        null,
                         () -> {
                             ref.close();
                             rootFileChannelRef = null;
-                        }, null);
+                        });
 
                 // After closing the rootFileChannelRef the open-state of the file channel
                 // depends on the local reference

@@ -23,7 +23,7 @@ import org.aksw.commons.txn.impl.FileSyncImpl;
 import org.aksw.commons.txn.impl.FileUtilsExtra;
 import org.aksw.commons.txn.impl.ResourceRepository;
 import org.aksw.commons.util.array.Array;
-import org.aksw.commons.util.strings.StringUtils;
+import org.aksw.commons.util.string.StringUtils;
 import org.aksw.difs.index.api.DatasetGraphIndexPlugin;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.jena.ext.com.google.common.io.MoreFiles;
