@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
 import java.time.Instant;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 import org.aksw.commons.txn.impl.ContentSync;
@@ -299,7 +300,9 @@ public class SyncedDataset {
 
     /** Returns true if every graph (named or default) has zero triples */
     public static boolean isEffectivelyEmpty(DatasetGraph dg) {
-        boolean result = Streams.stream(dg.listGraphNodes())
+        boolean result =
+            Optional.ofNullable(dg.getDefaultGraph()).map(Graph::isEmpty).orElse(true) &&
+            Streams.stream(dg.listGraphNodes())
             .allMatch(g -> {
                 Graph graph = dg.getGraph(g);
                 boolean r = graph.isEmpty();
