@@ -265,16 +265,21 @@ public class DifsFactory {
 
         StoreDefinition effStoreDef;
         if (!Files.exists(configFile)) {
-            if (storeDefinition == null) {
-                throw new RuntimeException(
-                        String.format("Config file %s does not exist and no default config was specified", configFile));
-            }
+            if (createIfNotExists) {
+                if (storeDefinition == null) {
+                    throw new RuntimeException(
+                            String.format("Config file %s does not exist and no default config was specified", configFile));
+                }
 
-            try (OutputStream out = Files.newOutputStream(configFile, StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
-                RDFDataMgr.write(out, storeDefinition.getModel(), RDFFormat.TURTLE_PRETTY);
-            }
+                logger.info(String.format("Creating new config file %s", configFile));
+                try (OutputStream out = Files.newOutputStream(configFile, StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
+                    RDFDataMgr.write(out, storeDefinition.getModel(), RDFFormat.TURTLE_PRETTY);
+                }
 
-            effStoreDef = storeDefinition;
+                effStoreDef = storeDefinition;
+            } else {
+                throw new RuntimeException(String.format("Config file %s does not exist and auto-creation is disabled", configFile));
+            }
         } else {
 //			if (Files.isDirectory(configFile)) {
 //				configFile = configFile.resolve("store.conf.ttl");

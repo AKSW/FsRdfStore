@@ -19,6 +19,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.aksw.commons.io.util.FileUtils;
 import org.aksw.commons.io.util.PathUtils;
 import org.aksw.commons.rx.op.RxOps;
 import org.aksw.commons.txn.api.Txn;
@@ -26,14 +27,11 @@ import org.aksw.commons.txn.api.TxnMgr;
 import org.aksw.commons.txn.api.TxnResourceApi;
 import org.aksw.commons.txn.impl.ContentSync;
 import org.aksw.commons.txn.impl.FileSyncImpl;
-import org.aksw.commons.txn.impl.FileUtilsExtra;
-import org.aksw.commons.txn.impl.ResourceRepository;
 import org.aksw.commons.util.array.Array;
 import org.aksw.difs.index.api.DatasetGraphIndexPlugin;
 import org.aksw.jena_sparql_api.difs.txn.SyncedDataset;
 import org.aksw.jena_sparql_api.difs.txn.TxnUtils;
 import org.aksw.jenax.arq.dataset.diff.DatasetGraphDiff;
-import org.apache.commons.lang3.ArrayUtils;
 import org.apache.jena.atlas.iterator.Iter;
 import org.apache.jena.graph.Graph;
 import org.apache.jena.graph.Node;
@@ -345,7 +343,7 @@ public class DatasetGraphFromTxnMgr
                     }
 
                     // Clean up empty paths
-                    FileUtilsExtra.deleteEmptyFolders(targetFile.getParent(), resRepoRootPath);
+                    FileUtils.deleteEmptyFolders(targetFile.getParent(), resRepoRootPath, true);
 
                     SyncedDataset synced = syncCache.getIfPresent(Array.wrap(resourceKey));
                     if (synced != null) {
