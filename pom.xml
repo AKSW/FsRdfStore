@@ -61,6 +61,9 @@
 		<jena.version>4.3.0-SNAPSHOT</jena.version>
 		<jenax.version>4.3.0-1-SNAPSHOT</jenax.version>
 
+		<slf4j.version>1.8.0-beta4</slf4j.version>
+		<log4j.version>2.15.0</log4j.version>
+
 
 		<timestamp>${maven.build.timestamp}</timestamp>
 		<maven.build.timestamp.format>yyyy-MM-dd HH:mm</maven.build.timestamp.format>
@@ -82,6 +85,19 @@
 
 	<dependencyManagement>
 		<dependencies>
+
+			<dependency>
+				<groupId>org.apache.logging.log4j</groupId>
+				<artifactId>log4j-slf4j18-impl</artifactId>
+				<version>${log4j.version}</version>
+			</dependency>
+
+			<dependency>
+				<groupId>org.slf4j</groupId>
+				<artifactId>slf4j-api</artifactId>
+				<version>${slf4j.version}</version>
+			</dependency>
+
 			<!-- <dependency> -->
 			<!-- <groupId>org.apache.jena</groupId> -->
 			<!-- <artifactId>jena-fuseki-main</artifactId> -->
@@ -154,6 +170,12 @@
 				<groupId>org.aksw.thirdparty.com.sshtools</groupId>
 				<artifactId>vfs2nio</artifactId>
 				<version>0.0.1-2</version>
+				<exclusions>
+					<exclusion>
+						<groupId>commons-logging</groupId>
+						<artifactId>commons-logging</artifactId>
+					</exclusion>
+				</exclusions>
 			</dependency>
 
 			<dependency>
@@ -166,25 +188,35 @@
 				<groupId>org.apache.commons</groupId>
 				<artifactId>commons-vfs2</artifactId>
 				<version>2.9.0-805-SNAPSHOT</version>
-                                <exclusions>
-                                        <exclusion>
-                                                <groupId>com.fasterxml.jackson.core</groupId>
-                                                <artifactId>jackson-annotations</artifactId>
-                                        </exclusion>
-                                </exclusions>
+				<exclusions>
+					<exclusion>
+						<groupId>com.fasterxml.jackson.core</groupId>
+						<artifactId>jackson-annotations</artifactId>
+					</exclusion>
+					<exclusion>
+						<groupId>commons-logging</groupId>
+						<artifactId>commons-logging</artifactId>
+					</exclusion>
+				</exclusions>
 			</dependency>
 
 			<dependency>
 				<groupId>org.apache.commons</groupId>
 				<artifactId>commons-vfs2-jackrabbit1</artifactId>
 				<version>2.9.0-805-SNAPSHOT</version>
+				<exclusions>
+					<exclusion>
+						<groupId>commons-logging</groupId>
+						<artifactId>commons-logging</artifactId>
+					</exclusion>
+				</exclusions>
 			</dependency>
 
-			<dependency>
-				<groupId>commons-httpclient</groupId>
-				<artifactId>commons-httpclient</artifactId>
-				<version>3.1</version>
-			</dependency>
+<!-- 			<dependency> -->
+<!-- 				<groupId>commons-httpclient</groupId> -->
+<!-- 				<artifactId>commons-httpclient</artifactId> -->
+<!-- 				<version>3.1</version> -->
+<!-- 			</dependency> -->
 
 			<dependency>
 				<groupId>org.apache.jackrabbit</groupId>
@@ -230,17 +262,6 @@
 				<version>${project.version}</version>
 			</dependency>
 
-			<dependency>
-				<groupId>log4j</groupId>
-				<artifactId>log4j</artifactId>
-				<version>1.2.17</version>
-			</dependency>
-
-			<dependency>
-				<groupId>org.slf4j</groupId>
-				<artifactId>slf4j-log4j12</artifactId>
-				<version>1.7.25</version>
-			</dependency>
 
 
 			<!-- <dependency> -->

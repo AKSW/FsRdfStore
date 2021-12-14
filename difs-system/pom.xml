@@ -61,10 +61,10 @@
 			<artifactId>commons-vfs2-jackrabbit1</artifactId>
 		</dependency>
 
-		<dependency>
-			<groupId>commons-httpclient</groupId>
-			<artifactId>commons-httpclient</artifactId>
-		</dependency>
+<!-- 		<dependency> -->
+<!-- 			<groupId>commons-httpclient</groupId> -->
+<!-- 			<artifactId>commons-httpclient</artifactId> -->
+<!-- 		</dependency> -->
 
 		<dependency>
 			<groupId>org.apache.httpcomponents.client5</groupId>
