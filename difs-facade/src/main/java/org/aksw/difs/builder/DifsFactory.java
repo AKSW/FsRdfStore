@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.PathMatcher;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.time.temporal.TemporalAmount;
@@ -67,7 +68,8 @@ public class DifsFactory {
 
     protected SymbolicLinkStrategy symbolicLinkStrategy;
 
-    protected Path configFile;
+    protected Path repoRootPath;
+    protected Path configFileRelPath;
     protected Path storeRelPath;
     protected Path indexRelPath;
     protected boolean createIfNotExists;
@@ -194,14 +196,23 @@ public class DifsFactory {
         return useJournal;
     }
 
+    public DifsFactory setRepoRootPath(Path repoRootPath) {
+        this.repoRootPath = repoRootPath;
+        return this;
+    }
+
+    public Path getRepoRootPath() {
+        return repoRootPath;
+    }
+
 
     public DifsFactory setConfigFile(Path configFile) {
-        this.configFile = configFile;
+        this.configFileRelPath = configFile;
         return this;
     }
 
     public Path getConfigFile() {
-        return configFile;
+        return configFileRelPath;
     }
 
     public StoreDefinition getStoreDefinition() {
@@ -231,7 +242,9 @@ public class DifsFactory {
 //        path = Paths.get("/tmp/graphtest/index/by-id"),
 //        DatasetGraphIndexerFromFileSystem::mavenStringToToPath
 
-        Path repoRootPath = configFile.getParent();
+        Path repoRootPath = this.repoRootPath == null
+                ? configFileRelPath.getParent()
+                : this.repoRootPath;
 
         Path indexFolder = repoRootPath.resolve("index").resolve(name);
         // Files.createDirectories(indexFolder);
@@ -260,11 +273,33 @@ public class DifsFactory {
         return this;
     }
 
+    protected Path getConfigFilePath() {
+        Path result;
+        if (repoRootPath == null) {
+            result = configFileRelPath;
+        } else {
+            if (configFileRelPath == null) {
+                result = repoRootPath.resolve("store.conf.ttl");
+            } else {
+                result = repoRootPath.resolve(configFileRelPath);
+            }
+        }
+        return result;
+    }
 
     public StoreDefinition createEffectiveStoreDefinition() throws IOException {
 
         StoreDefinition effStoreDef;
-        if (!Files.exists(configFile)) {
+
+        Path configFile = getConfigFile();
+
+        if (configFile == null) {
+            if (storeDefinition == null) {
+                throw new RuntimeException("Neither config file nor store definition provided");
+            } else {
+                effStoreDef = storeDefinition;
+            }
+        } else if (!Files.exists(configFile)) {
             if (createIfNotExists) {
                 if (storeDefinition == null) {
                     throw new RuntimeException(
@@ -292,15 +327,34 @@ public class DifsFactory {
         return effStoreDef;
     }
 
-    public TxnMgr createTxnMgr(TemporalAmount heartbeatInterval) throws IOException {
+    public TxnMgr createTxnMgr() throws IOException {
+        StoreDefinition effStoreDef = createEffectiveStoreDefinition();
+
+        return createTxnMgr(effStoreDef);
+    }
+
+    public TxnMgr createTxnMgr(StoreDefinition effStoreDef) throws IOException {
         // If the repo does not yet exist then run init which
         // creates default conf files
 
-        Path repoRootPath = configFile.getParent();
+        long heartbeatIntervalMs = Optional.ofNullable(effStoreDef.getHeartbeatInterval()).orElse(5000l);
+        TemporalAmount heartbeatInterval = Duration.ofMillis(heartbeatIntervalMs);
+
+        boolean isSingleFileMode = Boolean.TRUE.equals(effStoreDef.isSingleFile());
+
+        Path repoRootPath = this.repoRootPath != null
+                ? this.repoRootPath
+                : getConfigFile().getParent();
 
         if (createIfNotExists) {
             Files.createDirectories(repoRootPath);
         }
+
+        Path storeRelPath = Optional.ofNullable(effStoreDef.getStorePath()).map(Path::of).orElse(Path.of(""));
+        Path indexRelPath = Optional.ofNullable(effStoreDef.getIndexPath()).map(Path::of).orElse(Path.of("index"));
+
+        Path storeAbsPath = repoRootPath.resolve(storeRelPath);
+        Path indexAbsPath = repoRootPath.resolve(indexRelPath);
 
         // Set up indexers
 
@@ -311,19 +365,35 @@ public class DifsFactory {
 
         LockManager<Path> lockMgr = new LockManagerCompound<>(Arrays.asList(processLockMgr, threadLockMgr));
 
-        ResourceRepository<String> resStore = ResourceRepoImpl.createWithUriToPath(repoRootPath.resolve("store"));
+        ResourceRepository<String> resStore;
+        PathMatcher pathMatcher;
+
+        if (isSingleFileMode) {
+            storeAbsPath = storeAbsPath.getParent();
+            String fileName = storeAbsPath.getFileName().toString();
+
+            resStore = new ResourceRepoImpl(storeAbsPath, iri -> new String[] {});
+
+            // FIXME Interpret fileName as a literal!
+            pathMatcher = repoRootPath.getFileSystem().getPathMatcher("glob:./" + fileName);
+        } else {
+            resStore = ResourceRepoImpl.createWithUriToPath(storeAbsPath);
+            pathMatcher = repoRootPath.getFileSystem().getPathMatcher("glob:**/*.trig");
+        }
+
+
         ResourceRepository<String> resLocks = ResourceRepoImpl.createWithUrlEncode(repoRootPath.resolve("locks"));
 
         SymbolicLinkStrategy effSymlinkStrategy = symbolicLinkStrategy != null ? symbolicLinkStrategy : new SymbolicLinkStrategyStandard();
 
         String hostname = Hostname.getHostname();
-        int pid = ProcessUtils.getPid(0);
+        int pid = ProcessUtils.getPid(-1);
         String txnMgrId = hostname + "-" + pid + "-" + random.nextInt();
 
         logger.info("Creating txn manager with id: " + txnMgrId);
 
 
-        TxnMgr result = new TxnMgrImpl(txnMgrId, repoRootPath, heartbeatInterval, lockMgr, txnStore, resStore, resLocks, effSymlinkStrategy);
+        TxnMgr result = new TxnMgrImpl(txnMgrId, repoRootPath, pathMatcher, heartbeatInterval, lockMgr, txnStore, resStore, resLocks, effSymlinkStrategy);
 
         return result;
     }
@@ -338,9 +408,7 @@ public class DifsFactory {
 
         boolean allowEmptyGraphs = Optional.ofNullable(effStoreDef.isAllowEmptyGraphs()).orElse(false);
 
-        long heartbeatInterval = Optional.ofNullable(effStoreDef.getHeartbeatInterval()).orElse(5000l);
-
-        TxnMgr txnMgr = createTxnMgr(Duration.ofMillis(heartbeatInterval));
+        TxnMgr txnMgr = createTxnMgr(effStoreDef);
 
         Collection<DatasetGraphIndexPlugin> indexers = effStoreDef.getIndexDefinition().stream()
             .map(this::loadIndexDefinition)
@@ -351,7 +419,15 @@ public class DifsFactory {
             namedGraphCacheBuilder.maximumSize(maximumNamedGraphCacheSize);
         }
 
+        // In single file mode the resource store is the dataset file
+        boolean isSingleFileMode = Boolean.TRUE.equals(effStoreDef.isSingleFile());
+
+        String dataFileName = isSingleFileMode
+                ? txnMgr.getResRepo().getRootPath().getFileName().toString()
+                : "data.trig";
+
         DatasetGraphFromTxnMgr result = new DatasetGraphFromTxnMgr(
+                dataFileName,
                 useJournal, txnMgr, allowEmptyGraphs, isParallel, indexers, namedGraphCacheBuilder);
 
         // Check for stale transactions

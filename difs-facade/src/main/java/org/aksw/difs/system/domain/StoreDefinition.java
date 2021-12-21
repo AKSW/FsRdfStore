@@ -26,6 +26,13 @@ public interface StoreDefinition
     String getStorePath();
     StoreDefinition setStorePath(String path);
 
+    /** Whether to store all data in the file pointed to by store path; if false
+     *  then graphs are mapped to different folders; default: false */
+    @HashId
+    @Iri(DIFSTerms.singleFile)
+    Boolean isSingleFile();
+    StoreDefinition setSingleFile(Boolean onOrOff);
+
 
     @HashId
     @Iri(DIFSTerms.indexPath)

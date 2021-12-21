@@ -4,6 +4,8 @@ public class DIFSTerms {
     public static final String ns = "http://example.org/";
 
     public static final String storePath = ns + "storePath";
+    public static final String singleFile = ns + "singleFile";
+
     public static final String indexPath = ns + "indexPath";
     public static final String index = ns + "index";
 

@@ -84,6 +84,8 @@ public class DatasetGraphFromTxnMgr
 
     protected List<String> storeBaseSegments;
 
+    protected String dataFileName;
+
 //    public static DatasetGraphFromTxnMgr createDefault(Path repoRoot) {
 //        PathMatcher pathMatcher = repoRoot.getFileSystem().getPathMatcher("glob:**/*.trig");
 //
@@ -132,7 +134,8 @@ public class DatasetGraphFromTxnMgr
     }
 
     public Txn local() {
-        return txns.get();
+        Txn result = txns.get();
+        return result;
     }
 
 
@@ -150,6 +153,7 @@ public class DatasetGraphFromTxnMgr
 
     @SuppressWarnings("unchecked")
     public DatasetGraphFromTxnMgr(
+            String dataFileName,
             boolean useJournal,
             TxnMgr txnMgr,
             boolean allowEmptyGraphs,
@@ -157,6 +161,7 @@ public class DatasetGraphFromTxnMgr
             Collection<DatasetGraphIndexPlugin> indexers,
             CacheBuilder<?, ?> cacheBuilder) {
         super();
+        this.dataFileName = dataFileName;
         this.useJournal = useJournal;
         this.txnMgr = txnMgr;
         this.indexers = indexers;
@@ -632,7 +637,7 @@ public class DatasetGraphFromTxnMgr
     protected String[] getResourceKey(String iri) {
         Path path = PathUtils
                 .resolve(txnMgr.getResRepo().getRootPath(), txnMgr.getResRepo().getPathSegments(iri))
-                .resolve("data.trig");
+                .resolve(dataFileName);
 
         String[] result = pathToKey(path);
         return result;
@@ -794,7 +799,7 @@ public class DatasetGraphFromTxnMgr
             result = org.apache.jena.system.Txn.calculateRead(txn, () -> {
                 List<T> materialized = Lists.newArrayList(source.get());
                 if (materialized.size() > 100) {
-                    Exception warning = new RuntimeException("Many items seen in ad-hoc txn - consider managing the txn explicitly");
+                    Exception warning = new RuntimeException(String.format("Many items seen in ad-hoc txn (thread %s) - consider managing the txn explicitly", Thread.currentThread().getName()));
                     logger.warn("", warning);
                 }
                 return materialized.iterator();

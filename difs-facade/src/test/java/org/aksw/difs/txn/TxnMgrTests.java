@@ -32,8 +32,8 @@ public class TxnMgrTests {
     public void detectDeadLockTest() throws IOException, InterruptedException {
         TxnMgr txnMgr = DifsFactory.newInstance()
             .setConfigFile(Paths.get("/tmp/store.conf.ttl"))
-            .setStoreDefinition(sd -> {})
-            .createTxnMgr(Duration.ofSeconds(5l));
+            .setStoreDefinition(sd -> sd.setHeartbeatInterval(5000l))
+            .createTxnMgr();
 
         try {
             Txn a = txnMgr.newTxn("txn-a", true, true);
@@ -92,8 +92,8 @@ public class TxnMgrTests {
     public void detectStaleTxnTest() throws IOException, InterruptedException {
         TxnMgr txnMgr = DifsFactory.newInstance()
                 .setConfigFile(Paths.get("/tmp/store.conf.ttl"))
-                .setStoreDefinition(sd -> {})
-                .createTxnMgr(Duration.ofMillis(1l));
+                .setStoreDefinition(sd -> sd.setHeartbeatInterval(1l))
+                .createTxnMgr();
 
         try {
             Txn txn = txnMgr.newTxn(true, true);
