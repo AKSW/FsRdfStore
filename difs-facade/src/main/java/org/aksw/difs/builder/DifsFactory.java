@@ -423,7 +423,7 @@ public class DifsFactory {
         boolean isSingleFileMode = Boolean.TRUE.equals(effStoreDef.isSingleFile());
 
         String dataFileName = isSingleFileMode
-                ? txnMgr.getResRepo().getRootPath().getFileName().toString()
+                ? Path.of(storeDefinition.getStorePath()).getFileName().toString()
                 : "data.trig";
 
         DatasetGraphFromTxnMgr result = new DatasetGraphFromTxnMgr(
