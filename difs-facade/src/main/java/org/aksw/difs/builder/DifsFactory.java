@@ -370,12 +370,14 @@ public class DifsFactory {
 
         if (isSingleFileMode) {
             storeAbsPath = storeAbsPath.getParent();
-            String fileName = storeAbsPath.getFileName().toString();
-
+            // String fileName = storeAbsPath.getFileName().toString();
+            String fileName = Path.of(storeDefinition.getStorePath()).getFileName().toString();
+            
             resStore = new ResourceRepoImpl(storeAbsPath, iri -> new String[] {});
 
+            Path filePath = storeAbsPath.resolve(fileName);
             // FIXME Interpret fileName as a literal!
-            pathMatcher = repoRootPath.getFileSystem().getPathMatcher("glob:./" + fileName);
+            pathMatcher = repoRootPath.getFileSystem().getPathMatcher("glob:" + filePath.toString());
         } else {
             resStore = ResourceRepoImpl.createWithUriToPath(storeAbsPath);
             pathMatcher = repoRootPath.getFileSystem().getPathMatcher("glob:**/*.trig");

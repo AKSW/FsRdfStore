@@ -32,6 +32,7 @@ import org.aksw.difs.index.api.DatasetGraphIndexPlugin;
 import org.aksw.jena_sparql_api.difs.txn.SyncedDataset;
 import org.aksw.jena_sparql_api.difs.txn.TxnUtils;
 import org.aksw.jenax.arq.dataset.diff.DatasetGraphDiff;
+import org.aksw.jenax.arq.util.node.NodeUtils;
 import org.apache.jena.atlas.iterator.Iter;
 import org.apache.jena.graph.Graph;
 import org.apache.jena.graph.Node;
@@ -932,12 +933,16 @@ public class DatasetGraphFromTxnMgr
 
     @Override
     public Iterator<Quad> find(Node g, Node s, Node p, Node o) {
-
+    	Node gg = NodeUtils.nullToAny(g);
+    	Node ss = NodeUtils.nullToAny(s);
+    	Node pp = NodeUtils.nullToAny(p);
+    	Node oo = NodeUtils.nullToAny(o);
+    	
         return accessIterator(this, () -> {
             Txn local = local();
-            Stream<Quad> stream = g == null || Node.ANY.equals(g)
-                ? findInAnyNamedGraphs(local, s, p, o)
-                : findInSpecificNamedGraph(local, g, s, p, o);
+            Stream<Quad> stream = Node.ANY.equals(gg)
+                ? findInAnyNamedGraphs(local, ss, pp, oo)
+                : findInSpecificNamedGraph(local, gg, ss, pp, oo);
 
 
             Iterator<Quad> r = streamToClosableIterator(stream);
