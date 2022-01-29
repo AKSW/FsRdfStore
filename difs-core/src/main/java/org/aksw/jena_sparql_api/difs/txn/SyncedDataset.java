@@ -23,7 +23,6 @@ import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.jena.ext.com.google.common.collect.Streams;
 import org.apache.jena.graph.Graph;
 import org.apache.jena.riot.Lang;
-import org.apache.jena.riot.RDFDataMgr;
 import org.apache.jena.riot.RDFFormat;
 import org.apache.jena.sparql.core.DatasetGraph;
 import org.apache.jena.sparql.core.DatasetGraphFactory;
@@ -165,7 +164,9 @@ public class SyncedDataset {
     }
 
     protected void writeData(OutputStream out, DatasetGraph datasetGraph) {
-        RDFDataMgr.write(out, datasetGraph, RDFFormat.TRIG_BLOCKS);
+//    	StreamRDFWriterEx.writeAsGiven(datasetGraph, out, RDFFormat.TRIG_BLOCKS, null, null);
+//         RDFDataMgr.write(out, datasetGraph, RDFFormat.TRIG_BLOCKS);
+    	RDFDataMgrEx.writeAsGiven(out, datasetGraph, RDFFormat.TRIG_BLOCKS, null);
     }
 
     protected DatasetGraph newDatasetGraph() {
@@ -272,6 +273,12 @@ public class SyncedDataset {
     }
 
 
+    public boolean isUpToDate() {
+        // Check the time stamps of the source resources
+        State verify;
+        boolean result = state != null && (verify = getState()).equals(state);
+    	return result;
+    }
 
     public void ensureUpToDate() {
         Objects.requireNonNull(state);

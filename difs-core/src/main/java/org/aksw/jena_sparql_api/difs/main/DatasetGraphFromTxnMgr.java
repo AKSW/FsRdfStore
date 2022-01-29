@@ -451,16 +451,26 @@ public class DatasetGraphFromTxnMgr
     }
 
 
+    /**
+     * Attempts to lock the resource and obtain its dataset graph.
+     * If a fresh lock is acquired then a check is made for whether to
+     * reload the dataset graph content from disk.
+     */
     public DatasetGraph mapToDatasetGraph(Txn local, TxnResourceApi api) {
         api.declareAccess();
 
-        // api.lock(local.isWrite());
-        try {
-            acquireResourceLock(local, api);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        boolean wasAlreadyLocked = api.getTxnResourceLock().isLockedHere();
 
+        // api.lock(local.isWrite());
+        if (!wasAlreadyLocked) {
+	        try {
+	            acquireResourceLock(local, api);
+	        } catch (Exception e) {
+	            throw new RuntimeException(e);
+	        }
+        }
+        
+        
 //		Txn txn = local();
 //		if (txn != null) {
 //			api.lock(txn.isWrite());
@@ -469,7 +479,13 @@ public class DatasetGraphFromTxnMgr
         String[] resourceKey = api.getResourceKey();
         SyncedDataset entry;
         try {
-            entry = syncCache.get(Array.wrap(resourceKey));
+        	Array key = Array.wrap(resourceKey);
+            entry = syncCache.get(key);
+            
+            if (!wasAlreadyLocked && !entry.isUpToDate()) {
+            	logger.warn("Resource " + key + " was modified externally; forcing reload");
+            	entry.forceLoad();
+            }
         } catch (ExecutionException e) {
             throw new RuntimeException(e);
         }
